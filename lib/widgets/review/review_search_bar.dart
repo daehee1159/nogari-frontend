@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:nogari/models/review/review_provider.dart';
+import 'package:nogari/repositories/review/review_repository.dart';
+import 'package:nogari/repositories/review/review_repository_impl.dart';
 import 'package:nogari/services/review_service.dart';
+import 'package:nogari/viewmodels/review/review_viewmodel.dart';
 import 'package:provider/provider.dart';
 
 import '../../enums/search_condition.dart';
-import '../../models/review/review_data_dto.dart';
-import '../../screens/review/reivew_search_page.dart';
+import '../../models/review/review_data.dart';
+import '../../views/review/reivew_search_page.dart';
 
 class ReviewSearchBar extends StatefulWidget {
   final String type;
@@ -17,7 +19,8 @@ class ReviewSearchBar extends StatefulWidget {
 }
 
 class _ReviewSearchBarState extends State<ReviewSearchBar> {
-  final ReviewService reviewService = ReviewService();
+  final ReviewRepository _reviewRepository = ReviewRepositoryImpl();
+  final ReviewService _reviewService = ReviewService();
   TextEditingController textController = TextEditingController();
   SearchCondition searchCondition = SearchCondition.title;
 
@@ -47,7 +50,7 @@ class _ReviewSearchBarState extends State<ReviewSearchBar> {
                   width: MediaQuery.of(context).size.width * 0.2,
                   alignment: Alignment.center,
                   child: Text(
-                    _getConditionLabel(condition),
+                    _reviewService.getConditionLabel(condition),
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodyLarge,
                   ),
@@ -112,53 +115,41 @@ class _ReviewSearchBarState extends State<ReviewSearchBar> {
       ),
     );
   }
-  String _getConditionLabel(SearchCondition condition) {
-    switch (condition) {
-      case SearchCondition.title:
-        return '제목';
-      case SearchCondition.titleContent:
-        return '제목 + 내용';
-      case SearchCondition.content:
-        return '내용';
-      case SearchCondition.nickname:
-        return '닉네임';
-    }
-  }
 
   void _performSearch(BuildContext context) async {
-    ReviewProvider reviewProvider = Provider.of<ReviewProvider>(context, listen: false);
+    final reviewViewModel = Provider.of<ReviewViewModel>(context, listen: false);
     // 검색 로직을 여기에 구현
     if (widget.isFirstTime) {
       /// 뒤로가기 할 때 데이터의 보존을 위해 temp에 넣어두고 뒤로가기 했을 때 temp 를 다시 CommunityList 에 넣어줌
-      reviewProvider.setTempReviewData = reviewProvider.getReviewData;
-      reviewProvider.setTempReviewList = reviewProvider.getReviewList;
-      reviewProvider.callNotify();
+      reviewViewModel.setTempReviewData = reviewViewModel.getReviewData;
+      reviewViewModel.setTempReviewList = reviewViewModel.getReviewList;
+      reviewViewModel.callNotify();
       FocusManager.instance.primaryFocus?.unfocus();
       Navigator.push(context, MaterialPageRoute(builder: (context) => ReviewSearchPage(type: widget.type, searchCondition: searchCondition.name, keyword: textController.text)));
     } else {
-      final ReviewDataDto reviewDataDto;
+      final ReviewData reviewData;
       if (widget.type == 'like') {
-        reviewDataDto = await reviewService.getSearchReview(widget.type, searchCondition.name, textController.text, reviewProvider.getLikeCount, reviewProvider.getCurrentPage, reviewProvider.getSize);
+        reviewData = await _reviewRepository.getSearchReview(widget.type, searchCondition.name, textController.text, reviewViewModel.getLikeCount, reviewViewModel.getCurrentPage, reviewViewModel.getSize);
       } else {
-        reviewDataDto = await reviewService.getSearchReview(widget.type, searchCondition.name, textController.text, null, reviewProvider.getCurrentPage, reviewProvider.getSize);
+        reviewData = await _reviewRepository.getSearchReview(widget.type, searchCondition.name, textController.text, null, reviewViewModel.getCurrentPage, reviewViewModel.getSize);
       }
 
-      ReviewDataDto resultData = reviewDataDto;
-      reviewProvider.setReviewData = resultData;
-      reviewProvider.setTotalPages = resultData.pages;
-      reviewProvider.setSearchReviewList = resultData.list;
+      ReviewData resultData = reviewData;
+      reviewViewModel.setReviewData = resultData;
+      reviewViewModel.setTotalPages = resultData.pages;
+      reviewViewModel.setSearchReviewList = resultData.list;
 
       List<int> boardSeqList = [];
 
       for (int i = 0; i < resultData.list.length; i++) {
         boardSeqList.add(resultData.list[i].boardSeq);
       }
-      reviewProvider.setBoardSeqList = boardSeqList;
-      Future.microtask(() => reviewProvider.callNotify());
+      reviewViewModel.setBoardSeqList = boardSeqList;
+      Future.microtask(() => reviewViewModel.callNotify());
 
-      Map<int, int> result = await reviewService.getCntOfComment(reviewProvider.getBoardSeqList);
-      reviewProvider.setCntOfComment = result;
-      Future.microtask(() => reviewProvider.callNotify());
+      Map<int, int> result = await _reviewRepository.getCntOfComment(reviewViewModel.getBoardSeqList);
+      reviewViewModel.setCntOfComment = result;
+      Future.microtask(() => reviewViewModel.callNotify());
       FocusManager.instance.primaryFocus?.unfocus();
     }
   }

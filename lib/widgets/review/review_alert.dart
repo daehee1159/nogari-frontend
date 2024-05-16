@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:nogari/models/review/review_comment_provider.dart';
-import 'package:nogari/models/review/review_provider.dart';
-import 'package:nogari/services/review_service.dart';
+import 'package:nogari/repositories/review/review_repository.dart';
+import 'package:nogari/repositories/review/review_repository_impl.dart';
+import 'package:nogari/viewmodels/review/review_comment_viewmodel.dart';
+import 'package:nogari/viewmodels/review/review_viewmodel.dart';
 import 'package:provider/provider.dart';
 
-import '../../screens/home.dart';
+import '../../views/home.dart';
 import '../common/common_alert.dart';
 
 class ReviewAlert {
-  final ReviewService reviewService = ReviewService();
-  final CommonAlert commonAlert = CommonAlert();
+  final ReviewRepository _reviewRepository = ReviewRepositoryImpl();
+  final CommonAlert _commonAlert = CommonAlert();
 
   // 페이징바에서 마지막 페이지일 경우
   void lastPage(BuildContext context) {
@@ -42,8 +43,8 @@ class ReviewAlert {
   }
 
   void deleteConfirm(BuildContext context, String type, int? boardSeq, int? commentSeq, int? childCommentSeq) {
-    ReviewProvider reviewProvider = Provider.of<ReviewProvider>(context, listen: false);
-    ReviewCommentProvider reviewCommentProvider = Provider.of<ReviewCommentProvider>(context, listen: false);
+    final reviewViewModel = Provider.of<ReviewViewModel>(context, listen: false);
+    final reviewCommentViewModel = Provider.of<ReviewCommentViewModel>(context, listen: false);
 
     showDialog(
         context: context,
@@ -73,33 +74,33 @@ class ReviewAlert {
                     seq = childCommentSeq!;
                     break;
                 }
-                bool result = await reviewService.deleteReview(type, seq);
+                bool result = await _reviewRepository.deleteReview(type, seq);
 
                 if (result && context.mounted) {
                   switch (type) {
                     case 'board':
                     /// provider 에서 제거
-                      reviewProvider.reviewList.removeWhere((community) => community.boardSeq == seq);
-                      reviewProvider.callNotify();
+                      reviewViewModel.reviewList.removeWhere((community) => community.boardSeq == seq);
+                      reviewViewModel.callNotify();
                       Navigator.of(context).pop();
                       Navigator.push(context, MaterialPageRoute(builder: (context) => const Home(currentIndex: 1,)));
                       break;
                     case 'comment':
-                      reviewCommentProvider.reviewCommentList.removeWhere((comment) => comment.commentSeq == seq);
-                      reviewProvider.minusCntOfComment(boardSeq!);
-                      reviewCommentProvider.callNotify();
+                      reviewCommentViewModel.reviewCommentList.removeWhere((comment) => comment.commentSeq == seq);
+                      reviewViewModel.minusCntOfComment(boardSeq!);
+                      reviewCommentViewModel.callNotify();
                       Navigator.of(context).pop();
                       break;
                     case 'childComment':
-                      reviewCommentProvider.reviewChildCommentList.removeWhere((childComment) => childComment.childCommentSeq == seq);
-                      reviewCommentProvider.callNotify();
+                      reviewCommentViewModel.reviewChildCommentList.removeWhere((childComment) => childComment.childCommentSeq == seq);
+                      reviewCommentViewModel.callNotify();
                       Navigator.of(context).pop();
                       break;
                   }
                 } else {
                   if (context.mounted) {
                     Navigator.of(context).pop();
-                    commonAlert.errorAlert(context);
+                    _commonAlert.errorAlert(context);
                   }
                 }
               },

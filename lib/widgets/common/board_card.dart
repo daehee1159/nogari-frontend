@@ -1,29 +1,33 @@
 import 'package:flutter/material.dart';
-import 'package:nogari/models/community/community_data_dto.dart';
-import 'package:nogari/models/review/review_provider.dart';
-import 'package:nogari/screens/community/paging_my_community.dart';
-import 'package:nogari/services/community_service.dart';
-import 'package:nogari/services/review_service.dart';
+import 'package:nogari/repositories/community/community_repository.dart';
+import 'package:nogari/repositories/community/community_repository_impl.dart';
+import 'package:nogari/repositories/review/review_repository.dart';
+import 'package:nogari/repositories/review/review_repository_impl.dart';
+import 'package:nogari/views/community/paging_my_community.dart';
+import 'package:nogari/viewmodels/community/community_viewmodel.dart';
+import 'package:nogari/viewmodels/review/review_viewmodel.dart';
 import 'package:nogari/widgets/common/custom.divider.dart';
 import 'package:provider/provider.dart';
 
-import '../../models/community/community_provider.dart';
-import '../../models/review/review_data_dto.dart';
-import '../../screens/community/community_detail_page.dart';
+import '../../models/community/community_data.dart';
+import '../../models/review/review_data.dart';
+import '../../views/community/community_detail_page.dart';
 
 class BoardCard extends StatelessWidget {
+  final CommunityRepository _communityRepository = CommunityRepositoryImpl();
+  final ReviewRepository _reviewRepository = ReviewRepositoryImpl();
   final String widgetTitle;
   final String type;
 
-  const BoardCard({super.key, required this.type, required this.widgetTitle});
+  BoardCard({super.key, required this.type, required this.widgetTitle});
 
   @override
   Widget build(BuildContext context) {
-    CommunityProvider communityProvider = Provider.of<CommunityProvider>(context, listen: false);
-    ReviewProvider reviewProvider = Provider.of<ReviewProvider>(context, listen: false);
+    final communityViewModel = Provider.of<CommunityViewModel>(context, listen: false);
+    final reviewViewModel = Provider.of<ReviewViewModel>(context, listen: false);
 
     return FutureBuilder(
-      future: (type == 'community') ? CommunityService().getMyCommunity(communityProvider.getCurrentPage, communityProvider.getSize) : ReviewService().getMyReview(reviewProvider.getCurrentPage, reviewProvider.getSize),
+      future: (type == 'community') ? _communityRepository.getMyCommunity(communityViewModel.getCurrentPage, communityViewModel.getSize) : _reviewRepository.getMyReview(reviewViewModel.getCurrentPage, reviewViewModel.getSize),
       builder: (BuildContext context, AsyncSnapshot snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return SizedBox(
@@ -47,14 +51,14 @@ class BoardCard extends StatelessWidget {
           );
         } else {
           if (type == 'community') {
-            CommunityDataDto communityData = snapshot.data;
-            communityProvider.setCommunityData = communityData;
-            communityProvider.setTotalPages = communityData.pages;
-            communityProvider.setMyCommunityList = communityData.list;
-            Future.microtask(() => communityProvider.callNotify());
+            CommunityData communityData = snapshot.data;
+            communityViewModel.setCommunityData = communityData;
+            communityViewModel.setTotalPages = communityData.pages;
+            communityViewModel.setMyCommunityList = communityData.list;
+            Future.microtask(() => communityViewModel.callNotify());
 
-            return Consumer<CommunityProvider>(
-              builder: (context, provider, _) {
+            return Consumer<CommunityViewModel>(
+              builder: (context, viewModel, _) {
                 return Card(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -66,7 +70,7 @@ class BoardCard extends StatelessWidget {
                           style: Theme.of(context).textTheme.bodyMedium!.copyWith(fontSize: 20.0, fontWeight: FontWeight.bold),
                         ),
                       ),
-                      if (communityProvider.getMyCommunityList.isEmpty)
+                      if (viewModel.getMyCommunityList.isEmpty)
                         SizedBox(
                           width: double.infinity,
                           height: MediaQuery.of(context).size.height * 0.2,
@@ -80,24 +84,24 @@ class BoardCard extends StatelessWidget {
                       ListView.builder(
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
-                        itemCount: communityProvider.getMyCommunityList.length >= 5 ? 5 : communityProvider.getMyCommunityList.length,
+                        itemCount: viewModel.getMyCommunityList.length >= 5 ? 5 : viewModel.getMyCommunityList.length,
                         itemBuilder: (context, index) {
                           return Column(
                             children: [
                               ListTile(
                                 title: Text(
-                                  communityProvider.getMyCommunityList[index].title
+                                    viewModel.getMyCommunityList[index].title
                                 ),
                                 onTap: () {
-                                  Navigator.push(context, MaterialPageRoute(builder: (context) => CommunityDetailPage(community: communityProvider.getMyCommunityList[index])));
+                                  Navigator.push(context, MaterialPageRoute(builder: (context) => CommunityDetailPage(community: viewModel.getMyCommunityList[index])));
                                 },
                               ),
-                              (index == communityProvider.getMyCommunityList.length -1) ? const SizedBox() : const CustomDivider(height: 1, color: Colors.grey),
+                              (index == viewModel.getMyCommunityList.length -1) ? const SizedBox() : const CustomDivider(height: 1, color: Colors.grey),
                             ],
                           );
                         },
                       ),
-                      if (communityProvider.getMyCommunityList.length > 5)
+                      if (viewModel.getMyCommunityList.length > 5)
                         InkWell(
                           child: Container(
                             padding: const EdgeInsets.all(10.0),
@@ -118,13 +122,13 @@ class BoardCard extends StatelessWidget {
               }
             );
           } else {
-            ReviewDataDto reviewData = snapshot.data;
-            reviewProvider.setReviewData = reviewData;
-            reviewProvider.setMyReviewList = reviewData.list;
-            Future.microtask(() => communityProvider.callNotify());
+            ReviewData reviewData = snapshot.data;
+            reviewViewModel.setReviewData = reviewData;
+            reviewViewModel.setMyReviewList = reviewData.list;
+            Future.microtask(() => reviewViewModel.callNotify());
 
-            return Consumer<ReviewProvider>(
-                builder: (context, provider, _) {
+            return Consumer<ReviewViewModel>(
+                builder: (context, viewModel, _) {
                   return Card(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -136,7 +140,7 @@ class BoardCard extends StatelessWidget {
                             style: Theme.of(context).textTheme.bodyMedium!.copyWith(fontSize: 20.0, fontWeight: FontWeight.bold),
                           ),
                         ),
-                        if (reviewProvider.getMyReviewList.isEmpty)
+                        if (viewModel.getMyReviewList.isEmpty)
                           SizedBox(
                             width: double.infinity,
                             height: MediaQuery.of(context).size.height * 0.2,
@@ -150,23 +154,23 @@ class BoardCard extends StatelessWidget {
                         ListView.builder(
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
-                          itemCount: reviewProvider.getMyReviewList.length >= 5 ? 5 : reviewProvider.getMyReviewList.length,
+                          itemCount: viewModel.getMyReviewList.length >= 5 ? 5 : viewModel.getMyReviewList.length,
                           itemBuilder: (context, index) {
                             return Column(
                               children: [
                                 ListTile(
                                   title: Text(
-                                    reviewProvider.getMyReviewList[index].title
+                                      viewModel.getMyReviewList[index].title
                                   ),
                                   onTap: () {
                                   },
                                 ),
-                                (index == reviewProvider.getMyReviewList.length -1) ? const SizedBox() : const CustomDivider(height: 1, color: Colors.grey),
+                                (index == viewModel.getMyReviewList.length -1) ? const SizedBox() : const CustomDivider(height: 1, color: Colors.grey),
                               ],
                             );
                           },
                         ),
-                        if (reviewProvider.getMyReviewList.length > 5)
+                        if (viewModel.getMyReviewList.length > 5)
                           InkWell(
                             child: Container(
                               padding: const EdgeInsets.all(10.0),

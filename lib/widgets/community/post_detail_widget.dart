@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:nogari/enums/board_type.dart';
-import 'package:nogari/models/community/child_comment_dto.dart';
-import 'package:nogari/models/community/community_data_dto.dart';
-import 'package:nogari/models/community/community_provider.dart';
-import 'package:nogari/screens/community/community_update_form_page.dart';
-import 'package:nogari/services/community_service.dart';
+import 'package:nogari/models/community/community_data.dart';
+import 'package:nogari/repositories/community/community_comment_repository_impl.dart';
+import 'package:nogari/repositories/community/community_repository.dart';
+import 'package:nogari/repositories/community/community_repository_impl.dart';
+import 'package:nogari/views/community/community_update_form_page.dart';
+import 'package:nogari/viewmodels/community/community_viewmodel.dart';
+import 'package:nogari/viewmodels/member/member_viewmodel.dart';
 import 'package:nogari/widgets/common/banner_ad_widget.dart';
 import 'package:nogari/widgets/common/custom.divider.dart';
 import 'package:nogari/widgets/common/report_button.dart';
@@ -12,30 +14,29 @@ import 'package:nogari/widgets/community/comment_list.dart';
 import 'package:nogari/widgets/community/community_comment.dart';
 import 'package:provider/provider.dart';
 
-import '../../models/community/comment_provider.dart';
-import '../../models/member/member_info_provider.dart';
-import '../../services/community_comment_service.dart';
+import '../../models/community/child_comment.dart';
+import '../../repositories/community/community_comment_repository.dart';
+import '../../viewmodels/community/comment_viewmodel.dart';
 import '../common/block_dropdown_widget.dart';
 import '../common/circular_icon_text.dart';
 import 'community_alert.dart';
 
 class PostDetailWidget extends StatelessWidget {
   final Community postDetail;
-
-  const PostDetailWidget({super.key, required this.postDetail});
+  final CommunityRepository _communityRepository = CommunityRepositoryImpl();
+  final CommunityCommentRepository _communityCommentRepository = CommunityCommentRepositoryImpl();
+  final CommunityAlert _communityAlert = CommunityAlert();
+  PostDetailWidget({super.key, required this.postDetail});
 
   @override
   Widget build(BuildContext context) {
-    final CommunityService communityService = CommunityService();
-    final CommunityAlert communityAlert = CommunityAlert();
-
-    CommunityProvider communityProvider = Provider.of<CommunityProvider>(context, listen: false);
-    CommentProvider commentProvider = Provider.of<CommentProvider>(context, listen: false);
-    MemberInfoProvider memberInfoProvider = Provider.of<MemberInfoProvider>(context, listen: false);
+    final communityViewModel = Provider.of<CommunityViewModel>(context, listen: false);
+    final commentViewModel = Provider.of<CommentViewModel>(context, listen: false);
+    final memberViewModel = Provider.of<MemberViewModel>(context, listen: false);
 
     // 여기서 futurebuilder 로 대댓글 모두 가져오기
     return FutureBuilder(
-      future: CommunityCommentService().getChildCommentList(commentProvider.getCommentList),
+      future: _communityCommentRepository.getChildCommentList(commentViewModel.getCommentList),
       builder: (BuildContext context, AsyncSnapshot snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return SizedBox(
@@ -58,9 +59,9 @@ class PostDetailWidget extends StatelessWidget {
             ),
           );
         } else {
-          List<ChildCommentDto> childCommentList = snapshot.data;
-          commentProvider.setChildCommentList = childCommentList;
-          Future.microtask(() => commentProvider.callNotify());
+          List<ChildComment> childCommentList = snapshot.data;
+          commentViewModel.setChildCommentList = childCommentList;
+          Future.microtask(() => commentViewModel.callNotify());
 
           return SingleChildScrollView(
             child: GestureDetector(
@@ -87,7 +88,7 @@ class PostDetailWidget extends StatelessWidget {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.end,
                             children: [
-                              (postDetail.memberSeq == memberInfoProvider.getMemberSeq) ?
+                              (postDetail.memberSeq == memberViewModel.getMemberSeq) ?
                               TextButton(
                                 onPressed: () {
 
@@ -126,29 +127,29 @@ class PostDetailWidget extends StatelessWidget {
                           style: Theme.of(context).textTheme.bodyMedium
                         ),
                         SizedBox(height: MediaQueryData.fromView(View.of(context)).size.height * 0.05,),
-                        Consumer<CommunityProvider>(
-                          builder: (context, provider, _) {
+                        Consumer<CommunityViewModel>(
+                          builder: (context, viewModel, _) {
                             return Container(
                               width: double.infinity,
                               alignment: Alignment.center,
                               child: Column(
                                 children: [
                                   InkWell(
-                                    child: CircularIconText(icon: Icons.star, cnt: communityProvider.getCommunityList.firstWhere((community) => community.boardSeq == postDetail.boardSeq, orElse: () => communityProvider.getCommunity).likeCnt, community: postDetail),
+                                    child: CircularIconText(icon: Icons.star, cnt: viewModel.getCommunityList.firstWhere((community) => community.boardSeq == postDetail.boardSeq, orElse: () => viewModel.getCommunity).likeCnt, community: postDetail),
                                     onTap: () async {
-                                      bool isMyPress = communityProvider.getCommunityList.firstWhere((community) => community.boardSeq == postDetail.boardSeq, orElse: () => communityProvider.getCommunity).isMyPress;
+                                      bool isMyPress = viewModel.getCommunityList.firstWhere((community) => community.boardSeq == postDetail.boardSeq, orElse: () => viewModel.getCommunity).isMyPress;
                                       if (isMyPress) {
                                         // delete
-                                        bool result = await communityService.deleteBoardLike(postDetail.boardSeq, memberInfoProvider.getMemberSeq!);
-                                        communityProvider.getCommunityList.firstWhere((community) => community.boardSeq == postDetail.boardSeq, orElse: () => communityProvider.getCommunity).isMyPress = false;
-                                        communityProvider.getCommunityList.firstWhere((community) => community.boardSeq == postDetail.boardSeq, orElse: () => communityProvider.getCommunity).likeCnt = communityProvider.getCommunityList.firstWhere((community) => community.boardSeq == postDetail.boardSeq, orElse: () => communityProvider.getCommunity).likeCnt -1;
-                                        communityProvider.callNotify();
+                                        bool result = await _communityRepository.deleteBoardLike(postDetail.boardSeq, memberViewModel.getMemberSeq!);
+                                        viewModel.getCommunityList.firstWhere((community) => community.boardSeq == postDetail.boardSeq, orElse: () => viewModel.getCommunity).isMyPress = false;
+                                        viewModel.getCommunityList.firstWhere((community) => community.boardSeq == postDetail.boardSeq, orElse: () => viewModel.getCommunity).likeCnt = viewModel.getCommunityList.firstWhere((community) => community.boardSeq == postDetail.boardSeq, orElse: () => viewModel.getCommunity).likeCnt -1;
+                                        viewModel.callNotify();
                                       } else {
                                         // set
-                                        bool result = await communityService.setBoardLike(postDetail.boardSeq, memberInfoProvider.getMemberSeq!);
-                                        communityProvider.getCommunityList.firstWhere((community) => community.boardSeq == postDetail.boardSeq, orElse: () => communityProvider.getCommunity).isMyPress = true;
-                                        communityProvider.getCommunityList.firstWhere((community) => community.boardSeq == postDetail.boardSeq, orElse: () => communityProvider.getCommunity).likeCnt = communityProvider.getCommunityList.firstWhere((community) => community.boardSeq == postDetail.boardSeq, orElse: () => communityProvider.getCommunity).likeCnt +1;
-                                        communityProvider.callNotify();
+                                        bool result = await _communityRepository.setBoardLike(postDetail.boardSeq, memberViewModel.getMemberSeq!);
+                                        viewModel.getCommunityList.firstWhere((community) => community.boardSeq == postDetail.boardSeq, orElse: () => viewModel.getCommunity).isMyPress = true;
+                                        viewModel.getCommunityList.firstWhere((community) => community.boardSeq == postDetail.boardSeq, orElse: () => viewModel.getCommunity).likeCnt = viewModel.getCommunityList.firstWhere((community) => community.boardSeq == postDetail.boardSeq, orElse: () => viewModel.getCommunity).likeCnt +1;
+                                        viewModel.callNotify();
                                       }
                                     },
                                   ),
@@ -164,7 +165,7 @@ class PostDetailWidget extends StatelessWidget {
                       ],
                     ),
                   ),
-                  (postDetail.memberSeq != memberInfoProvider.memberSeq) ?
+                  (postDetail.memberSeq != memberViewModel.memberSeq) ?
                   SizedBox(
                     width: double.infinity,
                     child: Align(
@@ -175,7 +176,7 @@ class PostDetailWidget extends StatelessWidget {
                       )
                     ),
                   ) : const SizedBox(),
-                  (postDetail.memberSeq == memberInfoProvider.memberSeq) ?
+                  (postDetail.memberSeq == memberViewModel.memberSeq) ?
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     child: Row(
@@ -208,7 +209,7 @@ class PostDetailWidget extends StatelessWidget {
                               side: const BorderSide(color: Colors.black),
                             ),
                             onPressed: () {
-                              communityAlert.deleteConfirm(context, 'board', postDetail.boardSeq, null, null);
+                              _communityAlert.deleteConfirm(context, 'board', postDetail.boardSeq, null, null);
                             },
                             child: Text(
                               '삭제',
@@ -223,15 +224,15 @@ class PostDetailWidget extends StatelessWidget {
                   Column(
                     children: [
                       const CustomDivider(height: 3, color: Colors.grey),
-                      Consumer<CommentProvider>(
-                        builder: (context, provider, _) {
+                      Consumer<CommentViewModel>(
+                        builder: (context, viewModel, _) {
                           return Container(
                             padding: const EdgeInsets.all(10),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.start,
                               children: [
                                 Text(
-                                  '전체 댓글 ${commentProvider.getCommentList.length}개',
+                                  '전체 댓글 ${viewModel.getCommentList.length}개',
                                   style: Theme.of(context).textTheme.bodyMedium
                                 ),
                               ],
@@ -240,13 +241,13 @@ class PostDetailWidget extends StatelessWidget {
                         }
                       ),
                       const CustomDivider(height: 3, color: Colors.grey),
-                      (commentProvider.getCommentList.isEmpty) ?
+                      (commentViewModel.getCommentList.isEmpty) ?
                       Column(
                         children: [
                           const SizedBox(height: 10,),
                           const BannerAdWidget(),
                           const SizedBox(height: 10,),
-                          CommunityCommentWidget(communityDetail: postDetail, commentDtoList: commentProvider.getCommentList),
+                          CommunityCommentWidget(communityDetail: postDetail, commentList: commentViewModel.getCommentList),
                         ],
                       ) :
                       Column(
@@ -255,7 +256,7 @@ class PostDetailWidget extends StatelessWidget {
                           const SizedBox(height: 10,),
                           const BannerAdWidget(),
                           const SizedBox(height: 10,),
-                          CommunityCommentWidget(communityDetail: postDetail, commentDtoList: commentProvider.getCommentList)
+                          CommunityCommentWidget(communityDetail: postDetail, commentList: commentViewModel.getCommentList)
                         ],
                       ),
                     ],

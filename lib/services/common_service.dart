@@ -1,80 +1,67 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'dart:convert';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:intl/intl.dart';
-import 'package:nogari/enums/board_type.dart';
-import 'package:nogari/enums/report_reason.dart';
-import 'package:nogari/models/common/app_version_dto.dart';
-import 'package:nogari/models/common/app_version_provider.dart';
-import 'package:nogari/models/common/news_dto.dart';
-import 'package:nogari/models/common/news_provider.dart';
-import 'package:nogari/models/common/report_board.dto.dart';
-import 'package:nogari/models/man_hour/man_hour_provider.dart';
-import 'package:nogari/models/member/block_dto.dart';
-import 'package:nogari/models/member/block_provider.dart';
-import 'package:nogari/models/member/notification_dto.dart';
-import 'package:nogari/models/member/notification_provider.dart';
-import 'package:nogari/models/member/member_info_dto.dart';
-import 'package:nogari/models/member/member_info_provider.dart';
-import 'package:nogari/models/member/level_provider.dart';
-import 'package:nogari/models/member/point_history_provider.dart';
+import 'package:nogari/models/common/news.dart';
+import 'package:nogari/models/member/member_info.dart';
+import 'package:nogari/repositories/common/common_repository.dart';
+import 'package:nogari/repositories/common/common_repository_impl.dart';
+import 'package:nogari/repositories/man_hour/man_hour_repository.dart';
+import 'package:nogari/repositories/man_hour/man_hour_repository_impl.dart';
+import 'package:nogari/repositories/member/member_repository.dart';
+import 'package:nogari/repositories/member/member_repository_impl.dart';
 import 'package:nogari/services/man_hour_service.dart';
 import 'package:nogari/services/member_service.dart';
+import 'package:nogari/viewmodels/common/app_version_viewmodel.dart';
+import 'package:nogari/viewmodels/common/news_viewmodel.dart';
+import 'package:nogari/viewmodels/man_hour/man_hour_viewmodel.dart';
+import 'package:nogari/viewmodels/member/block_viewmodel.dart';
+import 'package:nogari/viewmodels/member/level_viewmodel.dart';
+import 'package:nogari/viewmodels/member/member_viewmodel.dart';
+import 'package:nogari/viewmodels/member/notification_viewmodel.dart';
+import 'package:nogari/viewmodels/member/point_history_viewmodel.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
-import 'package:recase/recase.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:http/http.dart' as http;
+import '../enums/search_condition.dart';
+import '../models/common/app_version.dart';
 import '../models/global/global_variable.dart';
 
 import 'package:firebase_storage/firebase_storage.dart' as firebase_storage;
 
-import '../models/man_hour/man_hour_dto.dart';
-import '../models/man_hour/tax_info_dto.dart';
-import '../models/member/level_dto.dart';
-import '../models/member/point_history_dto.dart';
+import '../models/man_hour/man_hour.dart';
+import '../models/man_hour/tax_info.dart';
+import '../models/member/block.dart';
+import '../models/member/level.dart';
+import '../models/member/notification_data.dart';
+import '../models/member/point_history.dart';
 
 import '../models/common/temp_nogari.dart';
-import '../screens/home.dart';
+import '../views/home.dart';
 
 class CommonService {
   Timer? _debounce;
   final MemberService memberService = MemberService();
+  final MemberRepository _memberRepository = MemberRepositoryImpl();
+  final CommonRepository _commonRepository = CommonRepositoryImpl();
   final ManHourService manHourService = ManHourService();
+  final ManHourRepository _manHourRepository = ManHourRepositoryImpl();
   InterstitialAd? _interstitialAd;
-
-  getAppVersion() async {
-    var url = Uri.parse('${Glob.commonUrl}/app/version');
-
-    Map<String, String> headers = {
-      'Content-Type': 'application/json',
-    };
-
-    http.Response response = await http.get(
-        url,
-        headers: headers,
-    );
-
-    AppVersionDto appVersionDto = AppVersionDto.fromJson(jsonDecode(response.body));
-
-    return appVersionDto;
-  }
 
   // SplashScreen fetchData
   fetchData(BuildContext context) async {
-    MemberInfoProvider memberInfoProvider = Provider.of<MemberInfoProvider>(context, listen: false);
-    NotificationProvider notificationProvider = Provider.of<NotificationProvider>(context, listen: false);
-    LevelProvider levelProvider = Provider.of<LevelProvider>(context, listen: false);
-    PointHistoryProvider pointHistoryProvider = Provider.of<PointHistoryProvider>(context, listen: false);
-    ManHourProvider manHourProvider = Provider.of<ManHourProvider>(context, listen: false);
-    AppVersionProvider appVersionProvider = Provider.of<AppVersionProvider>(context, listen: false);
-    NewsProvider newsProvider = Provider.of<NewsProvider>(context, listen: false);
-    BlockProvider blockProvider = Provider.of<BlockProvider>(context, listen: false);
+    final memberViewModel = Provider.of<MemberViewModel>(context, listen: false);
+    final notificationViewModel = Provider.of<NotificationViewModel>(context, listen: false);
+    final levelViewModel = Provider.of<LevelViewModel>(context, listen: false);
+    final pointHistoryViewModel = Provider.of<PointHistoryViewModel>(context, listen: false);
+    final manHourViewModel = Provider.of<ManHourViewModel>(context, listen: false);
+    final appVersionViewModel = Provider.of<AppVersionViewModel>(context, listen: false);
+    final newsViewModel = Provider.of<NewsViewModel>(context, listen: false);
+    final blockViewModel = Provider.of<BlockViewModel>(context, listen: false);
 
     /// 필요한 데이터 목록
     /// manHour
@@ -82,87 +69,86 @@ class CommonService {
     /// notification
     /// point
     try {
-      /// Member Info
+      /// MemberInfo
       SharedPreferences pref = await SharedPreferences.getInstance();
       int memberSeq = int.parse(pref.getInt(Glob.memberSeq).toString());
 
-      Map<String, dynamic> responseData = await memberService.getMemberInfo(memberSeq);
-      MemberInfoDto memberInfoDto = MemberInfoDto.fromJson(responseData);
-      memberInfoProvider.setMemberSeq = memberInfoDto.memberSeq;
-      memberInfoProvider.setNickName = memberInfoDto.nickName;
-      memberInfoProvider.setDevice = memberInfoDto.device;
-      memberInfoProvider.setDeviceToken = memberInfoDto.deviceToken;
-      memberInfoProvider.setStatus = memberInfoDto.status;
+      MemberInfo memberInfo = await _memberRepository.getMemberInfo(memberSeq);
+
+      memberViewModel.setMemberSeq = memberInfo.memberSeq;
+      memberViewModel.setNickName = memberInfo.nickName;
+      memberViewModel.setDevice = memberInfo.device;
+      memberViewModel.setDeviceToken = memberInfo.deviceToken;
+      memberViewModel.setStatus = memberInfo.status;
       // 여기서는 DateTime 으로 바꿔줄 필요는 있다
-      memberInfoProvider.setRegDt = memberInfoDto.regDt;
+      memberViewModel.setRegDt = memberInfo.regDt;
 
       /// notification
-      List<NotificationDto> notiResponse = await memberService.getNotification();
-      notificationProvider.setNotificationList = notiResponse;
+      List<NotificationData> notiResponse = await _memberRepository.getNotification();
+      notificationViewModel.setNotificationList = notiResponse;
 
       /// level, point
-      Map<String, dynamic> rankResponse = await memberService.getLevelAndPoint(memberSeq);
-      LevelDto levelDto = LevelDto.fromJson(rankResponse);
-      levelProvider.setLevelSeq = levelDto.levelSeq;
-      levelProvider.setLevel = levelDto.level;
-      levelProvider.setPoint = levelDto.point;
+      Level level = await _memberRepository.getLevelAndPoint(memberSeq);
+      levelViewModel.setLevelSeq = level.levelSeq;
+      levelViewModel.setLevel = level.level;
+      levelViewModel.setPoint = level.point;
 
       /// PointHistoryToday
-      List<PointHistoryDto> pointHistoryList = await memberService.getPointHistoryToday();
-      pointHistoryProvider.setPointHistoryList = pointHistoryList;
+      List<PointHistory> pointHistoryList = await _memberRepository.getPointHistoryToday();
+      pointHistoryViewModel.setPointHistoryList = pointHistoryList;
 
       /// Block Member List
-      List<BlockDto> blockDtoList = await memberService.getBlockMember();
-      blockProvider.setBlockDtoList = blockDtoList;
+      List<Block> blockList = await _memberRepository.getBlockMember();
+      blockViewModel.setBlockDtoList = blockList;
 
       /// News
-      List<NewsDto> newsList = await getNews();
-      newsProvider.setNewsList = newsList;
-      newsProvider.setRandomNewsList = newsList;
+      List<News> newsList = await _commonRepository.getNews();
+      newsViewModel.setNewsList = newsList;
+      newsViewModel.setRandomNewsList = newsList;
 
       /// 출석체크
       bool containsAttendance = pointHistoryList.any((pointHistory) => pointHistory.pointHistory == 'ATTENDANCE');
       if (!containsAttendance) {
-        await memberService.setAttendance();
-        pointHistoryProvider.addAttendance();
+        await _memberRepository.setPoint('ATTENDANCE');
+        pointHistoryViewModel.addAttendance();
       }
 
       /// 공수달력
-      List<ManHourDto> manHourDtoList = await manHourService.getManHourList();
-      manHourProvider.setManHourList = manHourDtoList;
-      Future.microtask(() => manHourProvider.callNotify());
+      List<ManHour> manHourList = await _manHourRepository.getManHourList();
+      manHourViewModel.setManHourList = manHourList;
+      Future.microtask(() => manHourViewModel.callNotify());
 
       /// 4대보험 가입여부
       bool insuranceStatus = pref.getBool(Glob.insuranceStatus) ?? true;
-      manHourProvider.setInsuranceStatus = insuranceStatus;
+      manHourViewModel.setInsuranceStatus = insuranceStatus;
 
       /// App Version
-      AppVersionDto appVersionDto = await getAppVersion();
-      appVersionProvider.setAppVersion = appVersionDto;
+      AppVersion appVersion = await _commonRepository.getAppVersion();
+      appVersionViewModel.setAppVersion = appVersion;
       PackageInfo packageInfo = await PackageInfo.fromPlatform();
-      appVersionProvider.setCurrentAppVersion = packageInfo.version;
-      appVersionProvider.setDBAppVersion = (Platform.isAndroid) ? appVersionDto.android : appVersionDto.ios;
+      appVersionViewModel.setCurrentAppVersion = packageInfo.version;
+      appVersionViewModel.setDBAppVersion = (Platform.isAndroid) ? appVersion.android : appVersion.ios;
 
       Map<String, Function()> pointHistoryActions = {
-        'ATTENDANCE': () => pointHistoryProvider.addAttendance(),
-        'COMMUNITY_WRITING': () => pointHistoryProvider.addCommunityWriting(),
-        'REVIEW_WRITING': () => pointHistoryProvider.addReviewWriting(),
-        'COMMUNITY_COMMENT': () => pointHistoryProvider.addCommunityComment(),
-        'REVIEW_COMMENT': () => pointHistoryProvider.addReviewComment(),
-        'WATCH_5SEC_AD': () => pointHistoryProvider.addWatch5SecAd(),
-        'WATCH_30SEC_AD': () => pointHistoryProvider.addWatch30SecAd(),
+        'ATTENDANCE': () => pointHistoryViewModel.addAttendance(),
+        'COMMUNITY_WRITING': () => pointHistoryViewModel.addCommunityWriting(),
+        'REVIEW_WRITING': () => pointHistoryViewModel.addReviewWriting(),
+        'COMMUNITY_COMMENT': () => pointHistoryViewModel.addCommunityComment(),
+        'REVIEW_COMMENT': () => pointHistoryViewModel.addReviewComment(),
+        'WATCH_5SEC_AD': () => pointHistoryViewModel.addWatch5SecAd(),
+        'WATCH_30SEC_AD': () => pointHistoryViewModel.addWatch30SecAd(),
       };
 
-      for (int i = 0; i < pointHistoryProvider.getPointHistoryList.length; i++) {
-        String currentHistory = pointHistoryProvider.getPointHistoryList[i].pointHistory;
+      for (int i = 0; i < pointHistoryViewModel.getPointHistoryList.length; i++) {
+        String currentHistory = pointHistoryViewModel.getPointHistoryList[i].pointHistory;
         if (pointHistoryActions.containsKey(currentHistory)) {
           pointHistoryActions[currentHistory]!();
         }
       }
 
       /// 세금 정보 가져오기
-      TaxInfoDto taxInfoDto = await getTaxInfo(DateTime.now().year.toString());
-      manHourProvider.setTaxInfo = taxInfoDto;
+      TaxInfo taxInfo = await _commonRepository.getTaxInfo(DateTime.now().year.toString());
+      manHourViewModel.setTaxInfo = taxInfo;
 
 
       /// FCM Token 만료 체크 및 교체
@@ -171,11 +157,11 @@ class CommonService {
         myDeviceToken = value;
       });
 
-      String dbToken = await memberService.getDeviceToken();
+      String dbToken = await _memberRepository.getDeviceToken();
 
       /// FCM 토큰이 DB 와 다를 경우 update
       if (myDeviceToken.toString() != "" && myDeviceToken.toString() != dbToken) {
-        bool result = await memberService.changeDeviceToken(myDeviceToken.toString());
+        bool result = await _memberRepository.changeDeviceToken(myDeviceToken.toString());
         if (result == false) {
           // GlobalFunc().setErrorLog("changedDeviceToken function Error");
         }
@@ -186,23 +172,6 @@ class CommonService {
       // GlobalFunc().setErrorLog("SplashScreen _fetchData catch Error log = $e");
       rethrow;
     }
-  }
-
-  getNews() async {
-    final Uri uri = Uri.parse('${Glob.commonUrl}/data/news');
-
-    Map<String, String> headers = {
-      'Content-Type': 'application/json',
-    };
-
-    http.Response response = await http.get(
-      uri,
-      headers: headers,
-    );
-
-    List<NewsDto> fetchData =((json.decode(response.body) as List).map((e) => NewsDto.fromJson(e)).toList());
-
-    return fetchData;
   }
 
   // 대문자 스네이크 케이스 -> 파스칼 케이스
@@ -287,24 +256,6 @@ class CommonService {
     });
   }
 
-  // 세금 정보 가져오기
-  Future<TaxInfoDto> getTaxInfo(String standardDt) async {
-    final Uri uri = Uri.parse('${Glob.commonUrl}/tax/$standardDt');
-
-    Map<String, String> headers = {
-      'Content-Type': 'application/json',
-    };
-
-    http.Response response = await http.get(
-      uri,
-      headers: headers,
-    );
-
-    TaxInfoDto taxInfoDto = TaxInfoDto.fromJson(json.decode(response.body));
-
-    return taxInfoDto;
-  }
-
   Future<InterstitialAd?> getInterstitialAd() async {
     final provider = getIt.get<TempNogari>();
 
@@ -316,10 +267,8 @@ class CommonService {
           ad.fullScreenContentCallback = FullScreenContentCallback(
             onAdShowedFullScreenContent: (ad) {
 
-              // print('Interstitial Ad Showed Full Screen Content');
             },
             onAdImpression: (ad) {
-              // print('Interstitial Ad Impression Recorded');
             },
             onAdFailedToShowFullScreenContent: (ad, err) {
               ad.dispose();
@@ -328,7 +277,6 @@ class CommonService {
               ad.dispose();
             },
             onAdClicked: (ad) {
-              // print('Interstitial Ad Clicked');
             },
           );
 
@@ -338,41 +286,9 @@ class CommonService {
           Future.microtask(() => provider.callNotify());
         },
         onAdFailedToLoad: (LoadAdError error) {
-          // print('InterstitialAd failed to load: $error');
         },
       ),
     );
-  }
-
-  // 게시글 신고하기
-  reportBoard(BoardType boardType, int boardSeq, ReportReason reportReason, int reportedMemberSeq) async {
-    SharedPreferences pref = await SharedPreferences.getInstance();
-    int memberSeq = int.parse(pref.getInt(Glob.memberSeq).toString());
-    var url = Uri.parse('${Glob.commonUrl}/report');
-
-    Map<String, String> headers = {
-      'Content-Type': 'application/json',
-    };
-
-    print('뭐가문제');
-    print(boardType.toJson());
-    print(reportReason.toJson());
-
-    var saveData = jsonEncode({
-      'boardType': ReCase(boardType.toString().split('.').last).constantCase,
-      'boardSeq': boardSeq,
-      'reportReason': ReCase(reportReason.toString().split('.').last).constantCase,
-      'reporterMemberSeq': memberSeq,
-      'reportedMemberSeq': reportedMemberSeq,
-    });
-
-    http.Response response = await http.post(
-        url,
-        headers: headers,
-        body: saveData
-    );
-
-    return jsonDecode(response.body);
   }
 
   List<DateTime> getDaysInBetween(DateTime startDate, DateTime endDate) {
@@ -399,4 +315,19 @@ class CommonService {
     }
     return days;
   }
+
+  String getConditionLabel(SearchCondition condition) {
+    switch (condition) {
+      case SearchCondition.title:
+        return '제목';
+      case SearchCondition.titleContent:
+        return '제목 + 내용';
+      case SearchCondition.content:
+        return '내용';
+      case SearchCondition.nickname:
+        return '닉네임';
+    }
+  }
+
+
 }

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:nogari/viewmodels/community/community_viewmodel.dart';
 import 'package:provider/provider.dart';
 
-import '../../models/community/community_data_dto.dart';
-import '../../models/community/community_provider.dart';
+import '../../models/community/community_data.dart';
 
 class CircularIconText extends StatelessWidget {
   final IconData icon;
@@ -24,13 +24,13 @@ class CircularIconText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    CommunityProvider communityProvider = Provider.of<CommunityProvider>(context, listen: false);
-    bool isMyPress = communityProvider.getCommunityList.firstWhere((community) => community.boardSeq == this.community.boardSeq, orElse: () => communityProvider.getCommunity).isMyPress;
+    final communityViewModel = Provider.of<CommunityViewModel>(context, listen: false);
+    bool isMyPress = communityViewModel.getCommunityList.firstWhere((community) => community.boardSeq == this.community.boardSeq, orElse: () => communityViewModel.getCommunity).isMyPress;
 
     return Column(
       children: [
-        Consumer<CommunityProvider>(
-          builder: (context, provider, _) {
+        Consumer<CommunityViewModel>(
+          builder: (context, viewModel, _) {
            return Container(
              width: size,
              height: size,
@@ -58,7 +58,7 @@ class CircularIconText extends StatelessWidget {
                    ),
                    // SizedBox(height: 2.0),
                    Text(
-                     communityProvider.getCommunityList.firstWhere((community) => community.boardSeq == this.community.boardSeq, orElse: () => communityProvider.getCommunity).likeCnt.toString(),
+                     viewModel.getCommunityList.firstWhere((community) => community.boardSeq == this.community.boardSeq, orElse: () => viewModel.getCommunity).likeCnt.toString(),
                      textAlign: TextAlign.center,
                      style: Theme.of(context).textTheme.bodyMedium!.copyWith(
                        color: Colors.black,

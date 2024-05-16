@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:nogari/screens/community/community_search_page.dart';
-import 'package:nogari/services/community_service.dart';
+import 'package:nogari/repositories/community/community_repository.dart';
+import 'package:nogari/repositories/community/community_repository_impl.dart';
+import 'package:nogari/views/community/community_search_page.dart';
+import 'package:nogari/services/common_service.dart';
+import 'package:nogari/viewmodels/community/community_viewmodel.dart';
 import 'package:provider/provider.dart';
 
 import '../../enums/search_condition.dart';
-import '../../models/community/community_data_dto.dart';
-import '../../models/community/community_provider.dart';
+import '../../models/community/community_data.dart';
 
 class CommonSearchBar extends StatefulWidget {
   final String type;
@@ -17,7 +19,9 @@ class CommonSearchBar extends StatefulWidget {
 }
 
 class _CommonSearchBarState extends State<CommonSearchBar> {
-  TextEditingController _textController = TextEditingController();
+  final CommonService _commonService = CommonService();
+  final CommunityRepository _communityRepository = CommunityRepositoryImpl();
+  TextEditingController textController = TextEditingController();
   SearchCondition searchCondition = SearchCondition.title;
 
   @override
@@ -46,7 +50,7 @@ class _CommonSearchBarState extends State<CommonSearchBar> {
                   width: MediaQuery.of(context).size.width * 0.2,
                   alignment: Alignment.center,
                   child: Text(
-                    _getConditionLabel(condition),
+                    _commonService.getConditionLabel(condition),
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodyLarge
                   ),
@@ -62,14 +66,14 @@ class _CommonSearchBarState extends State<CommonSearchBar> {
             child: SizedBox(
               height: MediaQuery.of(context).size.height * 0.04,
               child: TextField(
-                controller: _textController,
+                controller: textController,
                 onChanged: (value) {
                   setState(() {});
                 },
                 decoration: InputDecoration(
                   hintText: '검색어를 입력하세요',
                   hintStyle: Theme.of(context).textTheme.bodyMedium,
-                  suffixIcon: _textController.text.isNotEmpty
+                  suffixIcon: textController.text.isNotEmpty
                       ? Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -81,7 +85,7 @@ class _CommonSearchBarState extends State<CommonSearchBar> {
                         ),
                         onPressed: () {
                           setState(() {
-                            _textController.clear();
+                            textController.clear();
                           });
                         },
                       ),
@@ -112,57 +116,43 @@ class _CommonSearchBarState extends State<CommonSearchBar> {
     );
   }
 
-  String _getConditionLabel(SearchCondition condition) {
-    switch (condition) {
-      case SearchCondition.title:
-        return '제목';
-      case SearchCondition.titleContent:
-        return '제목 + 내용';
-      case SearchCondition.content:
-        return '내용';
-      case SearchCondition.nickname:
-        return '닉네임';
-    }
-  }
-
   void _performSearch(BuildContext context) async {
-    CommunityProvider communityProvider = Provider.of<CommunityProvider>(context, listen: false);
+    final communityViewModel = Provider.of<CommunityViewModel>(context, listen: false);
     // 검색 로직을 여기에 구현
     if (widget.isFirstTime) {
       /// 뒤로가기 할 때 데이터의 보존을 위해 temp에 넣어두고 뒤로가기 했을 때 temp 를 다시 CommunityList 에 넣어줌
-      communityProvider.setTempCommunityData = communityProvider.getCommunityData;
-      communityProvider.setTempCommunityList = communityProvider.getCommunityList;
-      communityProvider.callNotify();
+      communityViewModel.setTempCommunityData = communityViewModel.getCommunityData;
+      communityViewModel.setTempCommunityList = communityViewModel.getCommunityList;
+      communityViewModel.callNotify();
       FocusManager.instance.primaryFocus?.unfocus();
-      Navigator.push(context, MaterialPageRoute(builder: (context) => CommunitySearchPage(type: widget.type, searchCondition: searchCondition.name, keyword: _textController.text)));
+      Navigator.push(context, MaterialPageRoute(builder: (context) => CommunitySearchPage(type: widget.type, searchCondition: searchCondition.name, keyword: textController.text)));
     } else {
-      final CommunityDataDto communityData;
+      final CommunityData communityData;
       if (widget.type == 'like') {
-        communityData = await CommunityService().getSearchCommunity(widget.type, searchCondition.name, _textController.text, communityProvider.getLikeCount, communityProvider.getCurrentPage, communityProvider.getSize);
+        communityData = await _communityRepository.getSearchCommunity(widget.type, searchCondition.name, textController.text, communityViewModel.getLikeCount, communityViewModel.getCurrentPage, communityViewModel.getSize);
       } else {
-        communityData = await CommunityService().getSearchCommunity(widget.type, searchCondition.name, _textController.text, null, communityProvider.getCurrentPage, communityProvider.getSize);
+        communityData = await _communityRepository.getSearchCommunity(widget.type, searchCondition.name, textController.text, null, communityViewModel.getCurrentPage, communityViewModel.getSize);
       }
 
-      CommunityDataDto resultData = communityData;
-      communityProvider.setCommunityData = resultData;
-      communityProvider.setTotalPages = resultData.pages;
-      communityProvider.setSearchCommunityList = resultData.list;
+      CommunityData resultData = communityData;
+      communityViewModel.setCommunityData = resultData;
+      communityViewModel.setTotalPages = resultData.pages;
+      communityViewModel.setSearchCommunityList = resultData.list;
 
       List<int> boardSeqList = [];
 
       for (int i = 0; i < resultData.list.length; i++) {
         boardSeqList.add(resultData.list[i].boardSeq);
       }
-      communityProvider.setBoardSeqList = boardSeqList;
-      Future.microtask(() => communityProvider.callNotify());
+      communityViewModel.setBoardSeqList = boardSeqList;
+      Future.microtask(() => communityViewModel.callNotify());
 
 
-      Map<int, int> result = await CommunityService().getCntOfComment(communityProvider.getBoardSeqList);
-      communityProvider.setCntOfComment = result;
-      Future.microtask(() => communityProvider.callNotify());
+      Map<int, int> result = await _communityRepository.getCntOfComment(communityViewModel.getBoardSeqList);
+      communityViewModel.setCntOfComment = result;
+      Future.microtask(() => communityViewModel.callNotify());
       FocusManager.instance.primaryFocus?.unfocus();
     }
-
   }
 }
 

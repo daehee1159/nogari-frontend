@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:nogari/models/review/review_comment_provider.dart';
-import 'package:nogari/models/review/review_data_dto.dart';
-import 'package:nogari/models/review/review_provider.dart';
-import 'package:nogari/services/review_comment_service.dart';
-import 'package:nogari/services/review_service.dart';
+import 'package:nogari/models/review/review_data.dart';
+import 'package:nogari/repositories/review/review_comment_repository_impl.dart';
+import 'package:nogari/repositories/review/review_repository.dart';
+import 'package:nogari/repositories/review/review_repository_impl.dart';
+import 'package:nogari/viewmodels/member/member_viewmodel.dart';
+import 'package:nogari/viewmodels/review/review_comment_viewmodel.dart';
+import 'package:nogari/viewmodels/review/review_viewmodel.dart';
 import 'package:nogari/widgets/common/banner_ad_widget.dart';
 import 'package:nogari/widgets/common/custom.divider.dart';
 import 'package:nogari/widgets/review/review_alert.dart';
@@ -12,30 +14,29 @@ import 'package:nogari/widgets/review/review_comment_list.dart';
 import 'package:provider/provider.dart';
 
 import '../../enums/board_type.dart';
-import '../../models/member/member_info_provider.dart';
-import '../../models/review/review_child_comment_dto.dart';
-import '../../screens/review/review_update_form_page.dart';
+import '../../models/review/review_child_comment.dart';
+import '../../repositories/review/review_comment_repository.dart';
+import '../../views/review/review_update_form_page.dart';
 import '../common/block_dropdown_widget.dart';
 import '../common/report_button.dart';
 import '../common/review_circular_icon_text.dart';
 
 class ReviewDetailWidget extends StatelessWidget {
   final Review reviewDetail;
-
-  const ReviewDetailWidget({super.key, required this.reviewDetail});
+  final ReviewRepository _reviewRepository = ReviewRepositoryImpl();
+  final ReviewCommentRepository _reviewCommentRepository = ReviewCommentRepositoryImpl();
+  final ReviewAlert _reviewAlert = ReviewAlert();
+  ReviewDetailWidget({super.key, required this.reviewDetail});
 
   @override
   Widget build(BuildContext context) {
-    final ReviewService reviewService = ReviewService();
-    final ReviewAlert reviewAlert = ReviewAlert();
-
-    ReviewProvider reviewProvider = Provider.of<ReviewProvider>(context, listen: false);
-    ReviewCommentProvider reviewCommentProvider = Provider.of<ReviewCommentProvider>(context, listen: false);
-    MemberInfoProvider memberInfoProvider = Provider.of<MemberInfoProvider>(context, listen: false);
+    final reviewViewModel = Provider.of<ReviewViewModel>(context, listen: false);
+    final reviewCommentViewModel = Provider.of<ReviewCommentViewModel>(context, listen: false);
+    final memberViewModel = Provider.of<MemberViewModel>(context, listen: false);
 
     // 여기서 futurebuilder 로 대댓글 모두 가져오기
     return FutureBuilder(
-      future: ReviewCommentService().getChildCommentList(reviewCommentProvider.getReviewCommentList),
+      future: _reviewCommentRepository.getChildCommentList(reviewCommentViewModel.getReviewCommentList),
       builder: (BuildContext context, AsyncSnapshot snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return SizedBox(
@@ -58,9 +59,9 @@ class ReviewDetailWidget extends StatelessWidget {
             ),
           );
         } else {
-          List<ReviewChildCommentDto> childCommentList = snapshot.data;
-          reviewCommentProvider.setReviewChildCommentList = childCommentList;
-          Future.microtask(() => reviewCommentProvider.callNotify());
+          List<ReviewChildComment> childCommentList = snapshot.data;
+          reviewCommentViewModel.setReviewChildCommentList = childCommentList;
+          Future.microtask(() => reviewCommentViewModel.callNotify());
 
           return GestureDetector(
             child: Column(
@@ -86,7 +87,7 @@ class ReviewDetailWidget extends StatelessWidget {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
-                            (reviewDetail.memberSeq == memberInfoProvider.getMemberSeq) ?
+                            (reviewDetail.memberSeq == memberViewModel.getMemberSeq) ?
                             TextButton(
                                 onPressed: () {
 
@@ -150,29 +151,29 @@ class ReviewDetailWidget extends StatelessWidget {
                         style: Theme.of(context).textTheme.bodyMedium
                       ),
                       SizedBox(height: MediaQueryData.fromView(View.of(context)).size.height * 0.05,),
-                      Consumer<ReviewProvider>(
-                        builder: (context, provider, _) {
+                      Consumer<ReviewViewModel>(
+                        builder: (context, viewModel, _) {
                           return Container(
                             width: double.infinity,
                             alignment: Alignment.center,
                             child: Column(
                               children: [
                                 InkWell(
-                                  child: ReviewCircularIconText(icon: Icons.star, cnt: reviewProvider.getReviewList.firstWhere((community) => community.boardSeq == reviewDetail.boardSeq, orElse: () => reviewProvider.getReview).likeCnt, review: reviewDetail),
+                                  child: ReviewCircularIconText(icon: Icons.star, cnt: viewModel.getReviewList.firstWhere((community) => community.boardSeq == reviewDetail.boardSeq, orElse: () => viewModel.getReview).likeCnt, review: reviewDetail),
                                   onTap: () async {
-                                    bool isMyPress = reviewProvider.getReviewList.firstWhere((community) => community.boardSeq == reviewDetail.boardSeq, orElse: () => reviewProvider.getReview).isMyPress;
+                                    bool isMyPress = viewModel.getReviewList.firstWhere((community) => community.boardSeq == reviewDetail.boardSeq, orElse: () => viewModel.getReview).isMyPress;
                                     if (isMyPress) {
                                       // delete
-                                      bool result = await reviewService.deleteBoardLike(reviewDetail.boardSeq, memberInfoProvider.getMemberSeq!);
-                                      reviewProvider.getReviewList.firstWhere((community) => community.boardSeq == reviewDetail.boardSeq, orElse: () => reviewProvider.getReview).isMyPress = false;
-                                      reviewProvider.getReviewList.firstWhere((community) => community.boardSeq == reviewDetail.boardSeq, orElse: () => reviewProvider.getReview).likeCnt = reviewProvider.getReviewList.firstWhere((community) => community.boardSeq == reviewDetail.boardSeq, orElse: () => reviewProvider.getReview).likeCnt -1;
-                                      reviewProvider.callNotify();
+                                      bool result = await _reviewRepository.deleteBoardLike(reviewDetail.boardSeq, memberViewModel.getMemberSeq!);
+                                      viewModel.getReviewList.firstWhere((community) => community.boardSeq == reviewDetail.boardSeq, orElse: () => viewModel.getReview).isMyPress = false;
+                                      viewModel.getReviewList.firstWhere((community) => community.boardSeq == reviewDetail.boardSeq, orElse: () => viewModel.getReview).likeCnt = viewModel.getReviewList.firstWhere((community) => community.boardSeq == reviewDetail.boardSeq, orElse: () => viewModel.getReview).likeCnt -1;
+                                      viewModel.callNotify();
                                     } else {
                                       // set
-                                      bool result = await reviewService.setBoardLike(reviewDetail.boardSeq, memberInfoProvider.getMemberSeq!);
-                                      reviewProvider.getReviewList.firstWhere((community) => community.boardSeq == reviewDetail.boardSeq, orElse: () => reviewProvider.getReview).isMyPress = true;
-                                      reviewProvider.getReviewList.firstWhere((community) => community.boardSeq == reviewDetail.boardSeq, orElse: () => reviewProvider.getReview).likeCnt = reviewProvider.getReviewList.firstWhere((community) => community.boardSeq == reviewDetail.boardSeq, orElse: () => reviewProvider.getReview).likeCnt +1;
-                                      reviewProvider.callNotify();
+                                      bool result = await _reviewRepository.setBoardLike(reviewDetail.boardSeq, memberViewModel.getMemberSeq!);
+                                      viewModel.getReviewList.firstWhere((community) => community.boardSeq == reviewDetail.boardSeq, orElse: () => viewModel.getReview).isMyPress = true;
+                                      viewModel.getReviewList.firstWhere((community) => community.boardSeq == reviewDetail.boardSeq, orElse: () => viewModel.getReview).likeCnt = viewModel.getReviewList.firstWhere((community) => community.boardSeq == reviewDetail.boardSeq, orElse: () => viewModel.getReview).likeCnt +1;
+                                      viewModel.callNotify();
                                     }
                                   },
                                 ),
@@ -188,7 +189,7 @@ class ReviewDetailWidget extends StatelessWidget {
                     ],
                   ),
                 ),
-                (reviewDetail.memberSeq != memberInfoProvider.memberSeq) ?
+                (reviewDetail.memberSeq != memberViewModel.memberSeq) ?
                 SizedBox(
                   width: double.infinity,
                   child: Align(
@@ -199,7 +200,7 @@ class ReviewDetailWidget extends StatelessWidget {
                       )
                   ),
                 ) : const SizedBox(),
-                (reviewDetail.memberSeq == memberInfoProvider.memberSeq) ?
+                (reviewDetail.memberSeq == memberViewModel.memberSeq) ?
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   child: Row(
@@ -213,7 +214,6 @@ class ReviewDetailWidget extends StatelessWidget {
                             side: const BorderSide(color: Colors.black),
                           ),
                           onPressed: () {
-                            /// 여기는 수정 위젯으로 바꿔야함
                             Navigator.push(context, MaterialPageRoute(builder: (context) => ReviewUpdateFormPage(review: reviewDetail,)));
                           },
                           child: Text(
@@ -232,7 +232,7 @@ class ReviewDetailWidget extends StatelessWidget {
                             side: const BorderSide(color: Colors.black),
                           ),
                           onPressed: () {
-                            reviewAlert.deleteConfirm(context, 'board', reviewDetail.boardSeq, null, null);
+                            _reviewAlert.deleteConfirm(context, 'board', reviewDetail.boardSeq, null, null);
                           },
                           child: Text(
                             '삭제',
@@ -247,15 +247,15 @@ class ReviewDetailWidget extends StatelessWidget {
                 Column(
                   children: [
                     const CustomDivider(height: 3, color: Colors.grey),
-                    Consumer<ReviewCommentProvider>(
-                      builder: (context, provider, _) {
+                    Consumer<ReviewCommentViewModel>(
+                      builder: (context, viewModel, _) {
                         return Container(
                           padding: const EdgeInsets.all(10),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.start,
                             children: [
                               Text(
-                                '전체 댓글 ${reviewCommentProvider.getReviewCommentList.length}개',
+                                '전체 댓글 ${viewModel.getReviewCommentList.length}개',
                                 style: Theme.of(context).textTheme.bodyMedium
                               ),
                             ],
@@ -264,13 +264,13 @@ class ReviewDetailWidget extends StatelessWidget {
                       }
                     ),
                     const CustomDivider(height: 3, color: Colors.grey),
-                    (reviewProvider.getReviewList.isEmpty) ?
+                    (reviewViewModel.getReviewList.isEmpty) ?
                     Column(
                       children: [
                         const SizedBox(height: 10,),
                         const BannerAdWidget(),
                         const SizedBox(height: 10,),
-                        ReviewCommentWidget(reviewDetail: reviewDetail, reviewCommentDtoList: reviewCommentProvider.getReviewCommentList),
+                        ReviewCommentWidget(reviewDetail: reviewDetail, reviewCommentList: reviewCommentViewModel.getReviewCommentList),
                       ],
                     ) :
                     Column(
@@ -279,7 +279,7 @@ class ReviewDetailWidget extends StatelessWidget {
                         const SizedBox(height: 10,),
                         const BannerAdWidget(),
                         const SizedBox(height: 10,),
-                        ReviewCommentWidget(reviewDetail: reviewDetail, reviewCommentDtoList: reviewCommentProvider.getReviewCommentList)
+                        ReviewCommentWidget(reviewDetail: reviewDetail, reviewCommentList: reviewCommentViewModel.getReviewCommentList)
                       ],
                     ),
                   ],

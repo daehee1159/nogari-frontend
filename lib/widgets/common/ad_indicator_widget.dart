@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../screens/home.dart';
+import '../../views/home.dart';
 import '../../models/common/temp_nogari.dart';
 
 class AdIndicatorWidget extends StatelessWidget {

@@ -1,23 +1,23 @@
 import 'dart:io';
 
-import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class Glob {
   static const String serverUrlAndPort = '';
 
-  static String serverUrl = 'http://${Platform.environment['SERVER_URL'] ?? '10.0.2.2:80'}';
-  static String memberUrl = 'http://${Platform.environment['MEMBER_URL'] ?? '10.0.2.2:80'}/api/member';
-  static String accessTokenUrl = 'http://${Platform.environment['ACCESS_TOKEN_URL'] ?? '10.0.2.2:80'}/authenticate';
-  static String communityUrl = 'http://${Platform.environment['COMMUNITY_URL'] ?? '10.0.2.2:80'}/api/community';
-  static String reviewUrl = 'http://${Platform.environment['REVIEW_URL'] ?? '10.0.2.2:80'}/api/review';
-  static String manHourUrl = 'http://${Platform.environment['MAN_HOUR_URL'] ?? '10.0.2.2:80'}/api/man-hour';
-  static String commonUrl = 'http://${Platform.environment['COMMON_URL'] ?? '10.0.2.2:80'}/api/common';
-  static const String privacySiteUrl = 'https://sites.google.com/view/nogari-privacy';
-  static const String termsSiteUrl = 'https://sites.google.com/view/nogari-terms';
+  static String serverUrl = dotenv.get('SERVER_URL');
+  static String memberUrl = dotenv.get('MEMBER_URL');
+  static String accessTokenUrl = dotenv.get('ACCESS_TOKEN_URL');
+  static String communityUrl = dotenv.get('COMMUNITY_URL');
+  static String reviewUrl = dotenv.get('REVIEW_URL');
+  static String manHourUrl = dotenv.get('MAN_HOUR_URL');
+  static String commonUrl = dotenv.get('COMMON_URL');
+  static String privacySiteUrl = dotenv.get('PRIVACY_SITE_URL');
+  static String termsSiteUrl = dotenv.get('TERMS_SITE_URL');
 
-  static String testAdmobBannerId = Platform.isIOS ? Platform.environment['IOS_AD_BANNER_ID'].toString() : Platform.environment['ANDROID_AD_BANNER_ID'].toString();
+  static String testAdmobBannerId = Platform.isIOS ? dotenv.get('ADMOB_BANNER_IOS_ID') : dotenv.get('ADMOB_BANNER_ANDROID_ID');
   static String admobBannerId = '';
-  static String testInterstitialAdId = Platform.isIOS ? Platform.environment['IOS_AD_INTERSTITIAL_ID'].toString() : Platform.environment['ANDROID_AD_INTERSTITIAL_ID'].toString();
+  static String testInterstitialAdId = Platform.isIOS ? dotenv.get('INTERSTITIAL_AD_IOS_ID') : dotenv.get('INTERSTITIAL_AD_ANDROID_ID');
   static String interstitialAdId = '';
 
   static const String registration = 'registration';

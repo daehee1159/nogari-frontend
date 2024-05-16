@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../screens/man_hour/man_hour_screen.dart';
+import '../../views/man_hour/man_hour_screen.dart';
 
 class CommonAlert {
   void errorAlert(BuildContext context) {

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:nogari/services/common_service.dart';
-import 'package:nogari/screens/home.dart';
+import 'package:nogari/views/home.dart';
 import 'package:nogari/models/common/temp_nogari.dart';
 
 class SplashScreen extends StatelessWidget {

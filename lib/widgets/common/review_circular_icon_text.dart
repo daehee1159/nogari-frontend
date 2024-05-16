@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:nogari/models/review/review_provider.dart';
+import 'package:nogari/viewmodels/review/review_viewmodel.dart';
 import 'package:provider/provider.dart';
 
-import '../../models/community/community_provider.dart';
-import '../../models/review/review_data_dto.dart';
+import '../../models/review/review_data.dart';
 
 class ReviewCircularIconText extends StatelessWidget {
   final IconData icon;
@@ -25,13 +24,13 @@ class ReviewCircularIconText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    ReviewProvider reviewProvider = Provider.of<ReviewProvider>(context, listen: false);
-    bool isMyPress = reviewProvider.getReviewList.firstWhere((review) => review.boardSeq == this.review.boardSeq, orElse: () => reviewProvider.getReview).isMyPress;
+    final reviewViewModel = Provider.of<ReviewViewModel>(context, listen: false);
+    bool isMyPress = reviewViewModel.getReviewList.firstWhere((review) => review.boardSeq == this.review.boardSeq, orElse: () => reviewViewModel.getReview).isMyPress;
 
     return Column(
       children: [
-        Consumer<CommunityProvider>(
-            builder: (context, provider, _) {
+        Consumer<ReviewViewModel>(
+            builder: (context, viewModel, _) {
               return Container(
                 width: size,
                 height: size,
@@ -59,7 +58,7 @@ class ReviewCircularIconText extends StatelessWidget {
                       ),
                       // SizedBox(height: 2.0),
                       Text(
-                        reviewProvider.getReviewList.firstWhere((review) => review.boardSeq == this.review.boardSeq, orElse: () => reviewProvider.getReview).likeCnt.toString(),
+                        viewModel.getReviewList.firstWhere((review) => review.boardSeq == this.review.boardSeq, orElse: () => viewModel.getReview).likeCnt.toString(),
                         textAlign: TextAlign.center,
                         style: Theme.of(context).textTheme.bodyMedium!.copyWith(
                           color: Colors.black,

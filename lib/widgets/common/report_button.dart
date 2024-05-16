@@ -1,7 +1,8 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:nogari/enums/report_reason.dart';
-import 'package:nogari/services/common_service.dart';
+import 'package:nogari/repositories/common/common_repository.dart';
+import 'package:nogari/repositories/common/common_repository_impl.dart';
 import 'package:nogari/widgets/common/common_alert.dart';
 
 import '../../enums/board_type.dart';
@@ -17,7 +18,7 @@ class ReportButton extends StatefulWidget {
 }
 
 class _ReportButtonState extends State<ReportButton> {
-  final CommonService commonService = CommonService();
+  final CommonRepository _commonRepository = CommonRepositoryImpl();
   final CommonAlert commonAlert = CommonAlert();
   String selectedOption = '';
 
@@ -54,10 +55,8 @@ class _ReportButtonState extends State<ReportButton> {
                 onPressed: () async {
                   String description = reason.description;
                   // 여기에서 선택된 신고 사유에 대한 처리를 추가할 수 있습니다.
-                  print('Reported: $description');
                   ReportReason reportReason = ReportReasonExtension.fromDescription(description);
-                  print('Reported Enum: $reportReason');
-                  bool result = await commonService.reportBoard(widget.boardType, widget.boardSeq, reportReason, widget.reportedMemberSeq);
+                  bool result = await _commonRepository.reportBoard(widget.boardType, widget.boardSeq, reportReason, widget.reportedMemberSeq);
 
                   if (result) {
                     if (mounted) {

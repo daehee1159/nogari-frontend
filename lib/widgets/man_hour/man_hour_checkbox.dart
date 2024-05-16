@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:nogari/viewmodels/man_hour/man_hour_viewmodel.dart';
 import 'package:provider/provider.dart';
-
-import '../../models/man_hour/man_hour_provider.dart';
 
 class ManHourCheckBox extends StatefulWidget {
   final String type;
@@ -17,7 +16,7 @@ class _ManHourCheckBoxState extends State<ManHourCheckBox> {
 
   @override
   Widget build(BuildContext context) {
-    ManHourProvider manHourProvider = Provider.of<ManHourProvider>(context, listen: false);
+    final manHourViewModel = Provider.of<ManHourViewModel>(context, listen: false);
 
     if (widget.type == 'exceptSat') {
       _text = '토';
@@ -37,13 +36,13 @@ class _ManHourCheckBoxState extends State<ManHourCheckBox> {
             if (value != null) {
               setState(() {
                 if (widget.type == 'exceptSat') {
-                  manHourProvider.setExceptSat = value;
+                  manHourViewModel.setExceptSat = value;
                   _isChecked = value;
                 } else if (widget.type == 'exceptSun') {
-                  manHourProvider.setExceptSun = value;
+                  manHourViewModel.setExceptSun = value;
                   _isChecked = value;
                 } else if (widget.type == 'exceptHol') {
-                  manHourProvider.setExceptHol = value;
+                  manHourViewModel.setExceptHol = value;
                   _isChecked = value;
                 }
               });

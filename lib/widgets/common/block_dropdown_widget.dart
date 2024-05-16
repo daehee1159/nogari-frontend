@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:nogari/services/member_service.dart';
+import 'package:nogari/repositories/member/member_repository.dart';
+import 'package:nogari/repositories/member/member_repository_impl.dart';
+import 'package:nogari/viewmodels/member/block_viewmodel.dart';
 import 'package:nogari/widgets/member/member_alert.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../models/global/global_variable.dart';
-import '../../models/member/block_dto.dart';
-import '../../models/member/block_provider.dart';
+import '../../models/member/block.dart';
 
 class BlockDropdownWidget extends StatefulWidget {
   final int level;
@@ -21,17 +22,11 @@ class BlockDropdownWidget extends StatefulWidget {
 class _BlockDropdownWidgetState extends State<BlockDropdownWidget> {
   String selectedOption = '차단하기';
   GlobalKey actionKey = GlobalKey();
-  MemberService memberService = MemberService();
+  final MemberRepository _memberRepository = MemberRepositoryImpl();
   MemberAlert memberAlert = MemberAlert();
 
   @override
   Widget build(BuildContext context) {
-
-    print('데이터 테스트');
-    print(widget.level);
-    print(widget.nickname);
-    print(widget.memberSeq);
-
     return InkWell(
       key: actionKey,
       onTap: () {
@@ -45,10 +40,9 @@ class _BlockDropdownWidgetState extends State<BlockDropdownWidget> {
   }
 
   void _showDropdownMenu(BuildContext context) async {
-
-    BlockProvider blockProvider = Provider.of<BlockProvider>(context, listen: false);
+    final BlockViewModel blockViewModel = Provider.of<BlockViewModel>(context, listen: false);
     final RenderBox renderBox = actionKey.currentContext!.findRenderObject() as RenderBox;
-    final List<String> options = blockProvider.isBlocked(widget.memberSeq) ? ['차단해제'] : ['차단하기'];
+    final List<String> options = blockViewModel.isBlocked(widget.memberSeq) ? ['차단해제'] : ['차단하기'];
 
     var offset = renderBox.localToGlobal(Offset.zero);
     var rect = Rect.fromPoints(offset, offset.translate(renderBox.size.width, renderBox.size.height));
@@ -69,20 +63,20 @@ class _BlockDropdownWidgetState extends State<BlockDropdownWidget> {
       SharedPreferences pref = await SharedPreferences.getInstance();
       var memberSeq = pref.getInt(Glob.memberSeq);
 
-      if (blockProvider.isBlocked(widget.memberSeq)) {
+      if (blockViewModel.isBlocked(widget.memberSeq)) {
         // 차단된 경우 해제
-        List<BlockDto> blockDtoList = [];
-        BlockDto blockDto = BlockDto(
+        List<Block> blockList = [];
+        Block block = Block(
           blockSeq: 0,
           memberSeq: memberSeq!, blockMemberSeq: widget.memberSeq,
           blockMemberNickname: '',
           regDt: ''
         );
-        blockDtoList.add(blockDto);
-        bool result = await memberService.deleteBlockMember(blockDtoList);
+        blockList.add(block);
+        bool result = await _memberRepository.deleteBlockMember(blockList);
 
         if (result) {
-          blockProvider.removeBlockList(blockDto);
+          blockViewModel.removeBlockList(block);
           if (mounted) {
             memberAlert.successUnBlockMember(context);
           }
@@ -90,16 +84,16 @@ class _BlockDropdownWidgetState extends State<BlockDropdownWidget> {
 
       } else {
         // 차단
-        int result = await memberService.blockMember(widget.memberSeq);
+        int result = await _memberRepository.blockMember(widget.memberSeq);
 
         if (result != 0) {
-          BlockDto blockDto = BlockDto(
+          Block block = Block(
             blockSeq: result,
             memberSeq: memberSeq!, blockMemberSeq: widget.memberSeq,
             blockMemberNickname: widget.nickname,
             regDt: ''
           );
-          blockProvider.addBlockDtoList(blockDto);
+          blockViewModel.addBlockDtoList(block);
           if (mounted) {
             memberAlert.successBlockMember(context);
           }

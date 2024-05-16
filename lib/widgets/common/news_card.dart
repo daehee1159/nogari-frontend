@@ -1,12 +1,12 @@
 import 'package:html/parser.dart' as html_parser;
 
 import 'package:flutter/material.dart';
-import 'package:nogari/models/common/news_dto.dart';
+import 'package:nogari/models/common/news.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class NewsCard extends StatelessWidget {
-  final NewsDto newsDto;
-  const NewsCard({required this.newsDto, super.key});
+  final News news;
+  const NewsCard({required this.news, super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -30,7 +30,7 @@ class NewsCard extends StatelessWidget {
                       height: MediaQuery.of(context).size.height * 0.13,
                       child: ClipRect(
                         child: Image.network(
-                          newsDto.imgUrl,
+                          news.imgUrl,
                           fit: BoxFit.cover,
                         ),
                       ),
@@ -44,14 +44,14 @@ class NewsCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            html_parser.parse(newsDto.title).body!.text,
+                            html_parser.parse(news.title).body!.text,
                             style: Theme.of(context).textTheme.bodyMedium!.copyWith(fontSize: 18, fontWeight: FontWeight.bold),
                             overflow: TextOverflow.ellipsis,
                             maxLines: 2,
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            html_parser.parse(newsDto.description).body!.text,
+                            html_parser.parse(news.description).body!.text,
                             overflow: TextOverflow.ellipsis,
                             style: Theme.of(context).textTheme.bodyMedium,
                             maxLines: 2,
@@ -59,8 +59,8 @@ class NewsCard extends StatelessWidget {
                         ],
                       ),
                       onTap: () async {
-                        if (await canLaunchUrl(Uri.parse(newsDto.link))) {
-                          await launchUrl(Uri.parse(newsDto.link));
+                        if (await canLaunchUrl(Uri.parse(news.link))) {
+                          await launchUrl(Uri.parse(news.link));
                         } else {
                           throw 'Could not launch url';
                         }

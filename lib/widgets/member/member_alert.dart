@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:nogari/screens/login/login.dart';
+import 'package:nogari/views/login/login.dart';
 
 class MemberAlert {
   void withdrawalAlert(BuildContext context) {

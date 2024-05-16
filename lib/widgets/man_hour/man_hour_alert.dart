@@ -1,21 +1,22 @@
 import 'package:flutter/material.dart';
-import 'package:nogari/models/man_hour/man_hour_dto.dart';
+import 'package:nogari/repositories/man_hour/man_hour_repository.dart';
+import 'package:nogari/repositories/man_hour/man_hour_repository_impl.dart';
 import 'package:nogari/services/common_service.dart';
-import 'package:nogari/services/man_hour_service.dart';
+import 'package:nogari/viewmodels/man_hour/man_hour_viewmodel.dart';
 import 'package:nogari/widgets/common/common_alert.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../models/global/global_variable.dart';
-import '../../models/man_hour/man_hour_provider.dart';
+import '../../models/man_hour/man_hour.dart';
 
 class ManHourAlert {
-  final CommonAlert commonAlert = CommonAlert();
-  final CommonService commonService = CommonService();
-  final ManHourService manHourService = ManHourService();
+  final CommonAlert _commonAlert = CommonAlert();
+  final CommonService _commonService = CommonService();
+  final ManHourRepository _manHourRepository = ManHourRepositoryImpl();
 
   void bulkDeleteManHour(BuildContext context) {
-    ManHourProvider manHourProvider = Provider.of<ManHourProvider>(context, listen: false);
+    final manHourViewModel = Provider.of<ManHourViewModel>(context, listen: false);
 
     showDialog(
       context: context,
@@ -100,7 +101,7 @@ class ManHourAlert {
                               DateTime startDate = DateTime(pickedDate.start.year, pickedDate.start.month, pickedDate.start.day);
                               DateTime endDate = DateTime(pickedDate.end.year, pickedDate.end.month, pickedDate.end.day);
 
-                              List<DateTime> daysInBetweenList = commonService.getDaysInBetween(startDate, endDate);
+                              List<DateTime> daysInBetweenList = _commonService.getDaysInBetween(startDate, endDate);
 
                               /// 초기화
                               selectList = [];
@@ -114,19 +115,19 @@ class ManHourAlert {
                                   }
                                 }
                               }
-                              String period = manHourProvider.dateTimeToPeriod('period', startDate, endDate);
-                              manHourProvider.setStartDt = startDate;
-                              manHourProvider.setEndDt = endDate;
+                              String period = manHourViewModel.dateTimeToPeriod('period', startDate, endDate);
+                              manHourViewModel.setStartDt = startDate;
+                              manHourViewModel.setEndDt = endDate;
                               for (int i = 0; i < daysInBetweenList.length; i++) {
                                 String toStringDateTime = daysInBetweenList[i].toString().substring(0, 10);
                                 if (!toStringList.contains(toStringDateTime)) {
                                   toStringList.add(toStringDateTime);
                                 }
                               }
-                              manHourProvider.setDateList = [];
-                              manHourProvider.setDateList = toStringList;
-                              manHourProvider.setSelectedPeriod = 'period';
-                              manHourProvider.setPeriod = period;
+                              manHourViewModel.setDateList = [];
+                              manHourViewModel.setDateList = toStringList;
+                              manHourViewModel.setSelectedPeriod = 'period';
+                              manHourViewModel.setPeriod = period;
                             }
                           }
                           await selectDate(context);
@@ -138,11 +139,11 @@ class ManHourAlert {
                     ),
                     Expanded(
                       flex: 5,
-                      child: Consumer<ManHourProvider>(
-                        builder: (context, provider, _) {
+                      child: Consumer<ManHourViewModel>(
+                        builder: (context, viewModel, _) {
                           return Text(
-                            manHourProvider.period,
-                            style: Theme.of(context).textTheme.bodyMedium!.copyWith(color: (manHourProvider.period == '미선택') ? Colors.grey : Colors.black),
+                            viewModel.period,
+                            style: Theme.of(context).textTheme.bodyMedium!.copyWith(color: (viewModel.period == '미선택') ? Colors.grey : Colors.black),
                             textAlign: TextAlign.center,
                           );
                         },
@@ -165,48 +166,48 @@ class ManHourAlert {
               var memberSeq = pref.getInt(Glob.memberSeq);
 
               /// 선택된 날짜에서 현재 리스트와 날짜가 같은것을 분류
-              List<ManHourDto> manHourDtoList = manHourProvider.events.where((event) {
-                return manHourProvider.getDateList.contains(event.startDt.substring(0, 10)) &&
+              List<ManHour> manHourList = manHourViewModel.events.where((event) {
+                return manHourViewModel.getDateList.contains(event.startDt.substring(0, 10)) &&
                     event.isHoliday == 'N';
               }).toList();
 
               // 삭제 api 호출
-              bool result = await manHourService.deleteManHour(manHourDtoList);
+              bool result = await _manHourRepository.deleteManHour(manHourList);
 
               if (result) {
                 // api 성공 시 현재 리스트에서 삭제 리스트 제외
-                manHourProvider.events.removeWhere((event) {
-                  return manHourDtoList.any((manHourDto) => event.manHourSeq == manHourDto.manHourSeq);
+                manHourViewModel.events.removeWhere((event) {
+                  return manHourList.any((manHourDto) => event.manHourSeq == manHourDto.manHourSeq);
                 });
 
-                List<ManHourDto> minusList = [];
+                List<ManHour> minusList = [];
 
-                for (int i = 0; i < manHourDtoList.length; i++) {
+                for (int i = 0; i < manHourList.length; i++) {
                   /// manHourDtoList 의 각 객체 변수들은 final 이라서 바로 변경 불가
-                  ManHourDto manHourDto = ManHourDto(
-                    manHourSeq: manHourProvider.getManHourSeq,
+                  ManHour manHour = ManHour(
+                    manHourSeq: manHourViewModel.getManHourSeq,
                     memberSeq: memberSeq!.toInt(),
-                    startDt: manHourDtoList[i].startDt.substring(0, 10), endDt: manHourDtoList[i].endDt.substring(0, 10),
-                    totalAmount: -manHourDtoList[i].totalAmount, manHour: -manHourDtoList[i].manHour, unitPrice: -manHourDtoList[i].unitPrice, etcPrice: -manHourDtoList[i].etcPrice, memo: manHourDtoList[i].memo,
+                    startDt: manHourList[i].startDt.substring(0, 10), endDt: manHourList[i].endDt.substring(0, 10),
+                    totalAmount: -manHourList[i].totalAmount, manHour: -manHourList[i].manHour, unitPrice: -manHourList[i].unitPrice, etcPrice: -manHourList[i].etcPrice, memo: manHourList[i].memo,
                     isHoliday: 'N'
                   );
-                  minusList.add(manHourDto);
+                  minusList.add(manHour);
                 }
 
-                manHourProvider.currentFetchData(minusList);
-                String period = manHourProvider.dateTimeToPeriod('init', null, null);
-                manHourProvider.setPeriod = period;
-                manHourProvider.setSelectedPeriod = null;
-                manHourProvider.initData();
-                manHourProvider.initDateList();
-                Future.microtask(() => manHourProvider.callNotify());
+                manHourViewModel.currentFetchData(minusList);
+                String period = manHourViewModel.dateTimeToPeriod('init', null, null);
+                manHourViewModel.setPeriod = period;
+                manHourViewModel.setSelectedPeriod = null;
+                manHourViewModel.initData();
+                manHourViewModel.initDateList();
+                Future.microtask(() => manHourViewModel.callNotify());
                 if (context.mounted) {
-                  commonAlert.deleteComplete(context);
+                  _commonAlert.deleteComplete(context);
                 }
               } else {
                 // 실패 alert
                 if (context.mounted) {
-                  commonAlert.errorAlert(context);
+                  _commonAlert.errorAlert(context);
                 }
               }
             },
@@ -217,16 +218,16 @@ class ManHourAlert {
               style: Theme.of(context).textTheme.bodyMedium,
             ),
             onPressed: () {
-              manHourProvider.initData();
-              manHourProvider.initDateList();
+              manHourViewModel.initData();
+              manHourViewModel.initDateList();
 
-              String period = manHourProvider.dateTimeToPeriod('init', null, null);
-              manHourProvider.setPeriod = period;
-              manHourProvider.setSelectedPeriod = null;
+              String period = manHourViewModel.dateTimeToPeriod('init', null, null);
+              manHourViewModel.setPeriod = period;
+              manHourViewModel.setSelectedPeriod = null;
 
-              manHourProvider.setExceptSat = false;
-              manHourProvider.setExceptSun = false;
-              manHourProvider.setExceptHol = false;
+              manHourViewModel.setExceptSat = false;
+              manHourViewModel.setExceptSun = false;
+              manHourViewModel.setExceptHol = false;
 
               Navigator.of(context).pop();
             },

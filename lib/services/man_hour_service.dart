@@ -1,114 +1,7 @@
-import 'dart:convert';
-
-import 'package:flutter/material.dart';
-import 'package:nogari/models/man_hour/man_hour_dto.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:http/http.dart' as http;
-
-import '../models/global/global_variable.dart';
+import '../models/man_hour/man_hour.dart';
 import '../models/man_hour/man_hour_column_chart.dart';
 
 class ManHourService {
-  /// 공수 캘린더 저장하기
-  setManHour(List<ManHourDto> manHourDtoList) async {
-    SharedPreferences pref = await SharedPreferences.getInstance();
-    var memberSeq = pref.getInt(Glob.memberSeq);
-
-    var url = Uri.parse(Glob.manHourUrl);
-
-    Map<String, String> headers = {
-      'Content-Type': 'application/json',
-    };
-
-    List<Map<String, dynamic>> manHourListJson = ManHourDto.listToJson(manHourDtoList);
-
-    final saveData = jsonEncode(manHourListJson);
-
-    http.Response response = await http.post(
-        url,
-        headers: headers,
-        body: saveData
-    );
-
-    return jsonDecode(response.body);
-  }
-
-  /// 공수 캘린더 불러오기
-  getManHourList() async {
-    SharedPreferences pref = await SharedPreferences.getInstance();
-    var memberSeq = pref.getInt(Glob.memberSeq);
-    final Uri uri = Uri.parse('${Glob.manHourUrl}/$memberSeq');
-
-    Map<String, String> headers = {
-      'Content-Type': 'application/json',
-    };
-
-    http.Response response = await http.get(
-      uri,
-      headers: headers,
-    );
-
-    List<ManHourDto> fetchData =((json.decode(response.body) as List).map((e) => ManHourDto.fromJson(e)).toList());
-
-    for (int i = 0; i < fetchData.length; i++) {
-      if (fetchData[i].isHoliday == 'Y') {
-        fetchData[i] = fetchData[i].copyWith(
-          textStyle: const TextStyle(color: Colors.red, fontSize: 7, fontFamily: 'NotoSansKR-Regular'),
-          backGroundColor: Colors.transparent
-        );
-      }
-    }
-
-    return fetchData;
-  }
-
-  /// 공수 캘린더 수정
-  updateManHour(ManHourDto manHourDto) async {
-    SharedPreferences pref = await SharedPreferences.getInstance();
-    var memberSeq = pref.getInt(Glob.memberSeq);
-
-    var url = Uri.parse('${Glob.manHourUrl}/update');
-
-    Map<String, String> headers = {
-      'Content-Type': 'application/json',
-    };
-
-    final saveData = jsonEncode(manHourDto.toJson());
-
-    http.Response response = await http.post(
-        url,
-        headers: headers,
-        body: saveData
-    );
-
-    return jsonDecode(response.body);
-  }
-
-  /// 공수 캘린더 삭제
-  deleteManHour(List<ManHourDto> manHourDtoList) async {
-    SharedPreferences pref = await SharedPreferences.getInstance();
-    var memberSeq = pref.getInt(Glob.memberSeq);
-
-    var url = Uri.parse('${Glob.manHourUrl}/delete');
-
-    Map<String, String> headers = {
-      'Content-Type': 'application/json',
-    };
-
-
-    List<Map<String, dynamic>> manHourListJson = ManHourDto.listToJson(manHourDtoList);
-
-    final saveData = jsonEncode(manHourListJson);
-
-    http.Response response = await http.post(
-        url,
-        headers: headers,
-        body: saveData
-    );
-
-    return jsonDecode(response.body);
-  }
-
 
   /// List<int> 에 담긴 월에 해당하는 숫자에 맞는 해당 월의 모든 일자 반환
   /// 이거 필요 없음
@@ -126,7 +19,7 @@ class ManHourService {
   }
 
   /// 리스트에 있는 startDt.year 의 종류만 모아서 반환
-  List<int> getYearsList(List<ManHourDto> manHourList) {
+  List<int> getYearsList(List<ManHour> manHourList) {
     Map<int, Set<int>> yearMap = {};
 
     manHourList.forEach((manHour) {
@@ -146,7 +39,7 @@ class ManHourService {
   }
 
   /// 차트 데이터를 위한 월별 데이터 변환
-  List<ManHourColumnChart> convertToChartData(List<ManHourDto> manHourList) {
+  List<ManHourColumnChart> convertToChartData(List<ManHour> manHourList) {
     Map<String, int> monthTotalMap = {};
 
     // 1월부터 12월까지 모든 월을 0으로 초기화

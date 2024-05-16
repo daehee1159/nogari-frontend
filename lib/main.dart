@@ -2,25 +2,27 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:kakao_flutter_sdk/kakao_flutter_sdk.dart';
-import 'package:nogari/models/common/app_version_provider.dart';
-import 'package:nogari/models/common/news_provider.dart';
-import 'package:nogari/models/community/comment_provider.dart';
-import 'package:nogari/models/community/community_provider.dart';
-import 'package:nogari/models/man_hour/man_hour_provider.dart';
-import 'package:nogari/models/member/block_provider.dart';
-import 'package:nogari/models/member/member_info_provider.dart';
-import 'package:nogari/models/member/my_profile_provider.dart';
-import 'package:nogari/models/member/notification_provider.dart';
-import 'package:nogari/models/member/level_provider.dart';
-import 'package:nogari/models/member/point_history_provider.dart';
-import 'package:nogari/models/review/review_comment_provider.dart';
-import 'package:nogari/models/review/review_provider.dart';
-import 'package:nogari/services/member_service.dart';
+import 'package:nogari/repositories/member/member_repository.dart';
+import 'package:nogari/repositories/member/member_repository_impl.dart';
 import 'package:nogari/models/common/temp_nogari.dart';
-import 'package:nogari/screens/login/login.dart';
+import 'package:nogari/views/login/login.dart';
+import 'package:nogari/viewmodels/common/app_version_viewmodel.dart';
+import 'package:nogari/viewmodels/common/news_viewmodel.dart';
+import 'package:nogari/viewmodels/community/comment_viewmodel.dart';
+import 'package:nogari/viewmodels/community/community_viewmodel.dart';
+import 'package:nogari/viewmodels/man_hour/man_hour_viewmodel.dart';
+import 'package:nogari/viewmodels/member/block_viewmodel.dart';
+import 'package:nogari/viewmodels/member/level_viewmodel.dart';
+import 'package:nogari/viewmodels/member/member_viewmodel.dart';
+import 'package:nogari/viewmodels/member/my_profile_viewmodel.dart';
+import 'package:nogari/viewmodels/member/notification_viewmodel.dart';
+import 'package:nogari/viewmodels/member/point_history_viewmodel.dart';
+import 'package:nogari/viewmodels/review/review_comment_viewmodel.dart';
+import 'package:nogari/viewmodels/review/review_viewmodel.dart';
 import 'package:nogari/widgets/common/splash_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:get_it/get_it.dart';
@@ -35,7 +37,10 @@ void setupLocator() {
 Future<void> main() async {
   setupLocator();
   WidgetsFlutterBinding.ensureInitialized();
-  KakaoSdk.init(nativeAppKey: Platform.environment['KAKAO_NATIVE_APP_KEY'], javaScriptAppKey: Platform.environment['KAKAO_JAVASCRIPT_APP_KEY']);
+  // env load
+  await dotenv.load(fileName: 'development.env');
+  // await dotenv.load(fileName: 'production.env');
+  KakaoSdk.init(nativeAppKey: dotenv.get('KAKAO_NATIVE_APP_KEY'), javaScriptAppKey: dotenv.get('KAKAO_JAVASCRIPT_KEY'));
   await Firebase.initializeApp();
   MobileAds.instance.initialize();
 
@@ -46,52 +51,55 @@ Future<void> main() async {
             create: (BuildContext context) => TempNogari(),
           ),
           ChangeNotifierProvider(
-            create: (BuildContext context) => ManHourProvider(),
+            create: (BuildContext context) => AppVersionViewModel(),
           ),
           ChangeNotifierProvider(
-            create: (BuildContext context) => CommunityProvider(),
+            create: (BuildContext context) => NewsViewModel(),
           ),
           ChangeNotifierProvider(
-            create: (BuildContext context) => CommentProvider(),
+            create: (BuildContext context) => CommunityViewModel(),
           ),
           ChangeNotifierProvider(
-            create: (BuildContext context) => ReviewProvider(),
+            create: (BuildContext context) => CommentViewModel(),
           ),
           ChangeNotifierProvider(
-            create: (BuildContext context) => ReviewCommentProvider(),
+            create: (BuildContext context) => ManHourViewModel(),
           ),
           ChangeNotifierProvider(
-            create: (BuildContext context) => MemberInfoProvider(),
+            create: (BuildContext context) => BlockViewModel(),
           ),
           ChangeNotifierProvider(
-            create: (BuildContext context) => MyProfileProvider(),
+            create: (BuildContext context) => LevelViewModel(),
           ),
           ChangeNotifierProvider(
-            create: (BuildContext context) => NotificationProvider(),
+            create: (BuildContext context) => MemberViewModel(),
           ),
           ChangeNotifierProvider(
-            create: (BuildContext context) => LevelProvider(),
+            create: (BuildContext context) => MyProfileViewModel(),
           ),
           ChangeNotifierProvider(
-            create: (BuildContext context) => PointHistoryProvider(),
+            create: (BuildContext context) => NotificationViewModel(),
           ),
           ChangeNotifierProvider(
-            create: (BuildContext context) => AppVersionProvider(),
+            create: (BuildContext context) => PointHistoryViewModel(),
           ),
           ChangeNotifierProvider(
-            create: (BuildContext context) => NewsProvider(),
+            create: (BuildContext context) => ReviewViewModel(),
           ),
           ChangeNotifierProvider(
-            create: (BuildContext context) => BlockProvider(),
+            create: (BuildContext context) => ReviewCommentViewModel(),
           ),
         ],
-        child: const MyApp(),
+        child: MyApp(),
       )
   );
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  MyApp({super.key});
+
+  final MemberRepository _memberRepository = MemberRepositoryImpl();
+
   @override
   Widget build(BuildContext context) {
     /// 화면 세로 고정
@@ -138,7 +146,7 @@ class MyApp extends StatelessWidget {
           )
       ),
       home: FutureBuilder(
-        future: MemberService().loginCheck(),
+        future: _memberRepository.loginCheck(),
         builder: (BuildContext context, AsyncSnapshot snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(

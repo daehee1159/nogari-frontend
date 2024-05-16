@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:nogari/models/community/comment_provider.dart';
-import 'package:nogari/services/community_service.dart';
+import 'package:nogari/repositories/community/community_repository.dart';
+import 'package:nogari/repositories/community/community_repository_impl.dart';
+import 'package:nogari/viewmodels/community/comment_viewmodel.dart';
+import 'package:nogari/viewmodels/community/community_viewmodel.dart';
 import 'package:nogari/widgets/common/common_alert.dart';
 import 'package:provider/provider.dart';
 
-import '../../models/community/community_provider.dart';
-import '../../screens/home.dart';
+import '../../views/home.dart';
 
 class CommunityAlert {
-  final CommunityService communityService = CommunityService();
+  final CommunityRepository _communityRepository = CommunityRepositoryImpl();
   final CommonAlert commonAlert = CommonAlert();
 
   // 페이징바에서 마지막 페이지일 경우
@@ -42,8 +43,8 @@ class CommunityAlert {
   }
 
   void deleteConfirm(BuildContext context, String type, int? boardSeq, int? commentSeq, int? childCommentSeq) {
-    CommunityProvider communityProvider = Provider.of<CommunityProvider>(context, listen: false);
-    CommentProvider commentProvider = Provider.of<CommentProvider>(context, listen: false);
+    final communityViewModel = Provider.of<CommunityViewModel>(context, listen: false);
+    final commentViewModel = Provider.of<CommentViewModel>(context, listen: false);
 
     showDialog(
         context: context,
@@ -77,26 +78,26 @@ class CommunityAlert {
                     seq = childCommentSeq!;
                     break;
                 }
-                bool result = await communityService.deleteCommunity(type, seq);
+                bool result = await _communityRepository.deleteCommunity(type, seq);
 
                 if (result && context.mounted) {
                   switch (type) {
                     case 'board':
                       /// provider 에서 제거
-                      communityProvider.communityList.removeWhere((community) => community.boardSeq == seq);
-                      communityProvider.callNotify();
+                      communityViewModel.communityList.removeWhere((community) => community.boardSeq == seq);
+                      communityViewModel.callNotify();
                       Navigator.of(context).pop();
                       Navigator.push(context, MaterialPageRoute(builder: (context) => const Home(currentIndex: 1,)));
                       break;
                     case 'comment':
-                      commentProvider.commentList.removeWhere((comment) => comment.commentSeq == seq);
-                      communityProvider.minusCntOfComment(boardSeq!);
-                      commentProvider.callNotify();
+                      commentViewModel.commentList.removeWhere((comment) => comment.commentSeq == seq);
+                      communityViewModel.minusCntOfComment(boardSeq!);
+                      commentViewModel.callNotify();
                       Navigator.of(context).pop();
                       break;
                     case 'childComment':
-                      commentProvider.childCommentList.removeWhere((childComment) => childComment.childCommentSeq == seq);
-                      commentProvider.callNotify();
+                      commentViewModel.childCommentList.removeWhere((childComment) => childComment.childCommentSeq == seq);
+                      commentViewModel.callNotify();
                       Navigator.of(context).pop();
                       break;
                   }

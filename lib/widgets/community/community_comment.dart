@@ -1,29 +1,33 @@
 import 'package:flutter/material.dart';
-import 'package:nogari/models/community/community_data_dto.dart';
-import 'package:nogari/services/community_service.dart';
-import 'package:nogari/services/member_service.dart';
+import 'package:nogari/models/community/comment.dart';
+import 'package:nogari/models/community/community_data.dart';
+import 'package:nogari/repositories/community/community_repository.dart';
+import 'package:nogari/repositories/community/community_repository_impl.dart';
+import 'package:nogari/repositories/member/member_repository.dart';
+import 'package:nogari/repositories/member/member_repository_impl.dart';
+import 'package:nogari/viewmodels/community/comment_viewmodel.dart';
+import 'package:nogari/viewmodels/community/community_viewmodel.dart';
+import 'package:nogari/viewmodels/member/level_viewmodel.dart';
+import 'package:nogari/viewmodels/member/member_viewmodel.dart';
+import 'package:nogari/viewmodels/member/point_history_viewmodel.dart';
 import 'package:nogari/widgets/common/common_alert.dart';
 import 'package:provider/provider.dart';
 
-import '../../models/community/comment_dto.dart';
-import '../../models/community/comment_provider.dart';
-import '../../models/community/community_provider.dart';
-import '../../models/member/member_info_provider.dart';
-import '../../models/member/level_provider.dart';
-import '../../models/member/point_history_provider.dart';
 import '../common/custom.divider.dart';
 
 class CommunityCommentWidget extends StatefulWidget {
   final Community communityDetail;
-  final List<CommentDto> commentDtoList;
+  final List<Comment> commentList;
 
-  const CommunityCommentWidget({required this.communityDetail, required this.commentDtoList, super.key});
+  const CommunityCommentWidget({required this.communityDetail, required this.commentList, super.key});
 
   @override
   State<CommunityCommentWidget> createState() => _CommunityCommentWidgetState();
 }
 
 class _CommunityCommentWidgetState extends State<CommunityCommentWidget> {
+  final CommunityRepository _communityRepository = CommunityRepositoryImpl();
+  final MemberRepository _memberRepository = MemberRepositoryImpl();
   TextEditingController commentController = TextEditingController();
 
   @override
@@ -40,14 +44,12 @@ class _CommunityCommentWidgetState extends State<CommunityCommentWidget> {
 
   @override
   Widget build(BuildContext context) {
-    final CommunityService communityService = CommunityService();
-    final MemberService memberService = MemberService();
     final CommonAlert commonAlert = CommonAlert();
-    CommunityProvider communityProvider = Provider.of<CommunityProvider>(context, listen: false);
-    CommentProvider commentProvider = Provider.of<CommentProvider>(context, listen: false);
-    LevelProvider levelProvider = Provider.of<LevelProvider>(context, listen: false);
-    MemberInfoProvider memberInfoProvider = Provider.of<MemberInfoProvider>(context, listen: false);
-    PointHistoryProvider pointHistoryProvider = Provider.of<PointHistoryProvider>(context, listen: false);
+    final communityViewModel = Provider.of<CommunityViewModel>(context, listen: false);
+    final commentViewModel = Provider.of<CommentViewModel>(context, listen: false);
+    final levelViewModel = Provider.of<LevelViewModel>(context, listen: false);
+    final memberViewModel = Provider.of<MemberViewModel>(context, listen: false);
+    final pointHistoryViewModel = Provider.of<PointHistoryViewModel>(context, listen: false);
 
     return SingleChildScrollView(
       child: Container(
@@ -66,7 +68,7 @@ class _CommunityCommentWidgetState extends State<CommunityCommentWidget> {
                     color: Colors.white,
                     width: double.infinity,
                     child: Text(
-                      '닉네임 : Lv.${levelProvider.getLevel} ${memberInfoProvider.getNickName}',
+                      '닉네임 : Lv.${levelViewModel.getLevel} ${memberViewModel.getNickName}',
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                   ),
@@ -101,23 +103,23 @@ class _CommunityCommentWidgetState extends State<CommunityCommentWidget> {
                           return commonAlert.spaceError(context, '내용');
                         }
 
-                        int result = await communityService.setComment(widget.communityDetail.boardSeq, memberInfoProvider.getMemberSeq!, memberInfoProvider.getNickName!, commentController.text);
+                        int result = await _communityRepository.setComment(widget.communityDetail.boardSeq, memberViewModel.getMemberSeq!, memberViewModel.getNickName!, commentController.text);
 
                         if (result != 0) {
                           // 성공했으면 provider 에 방금 데이터 넣어야함
-                          CommentDto commentDto = CommentDto(
+                          Comment comment = Comment(
                               commentSeq: result, boardSeq: widget.communityDetail.boardSeq,
-                              memberSeq: memberInfoProvider.getMemberSeq!, nickname: memberInfoProvider.getNickName!,
+                              memberSeq: memberViewModel.getMemberSeq!, nickname: memberViewModel.getNickName!,
                               content: commentController.text,
                               deleteYN: 'N',
                               regDt: DateTime.now().toString());
-                          commentProvider.addCommentList(commentDto);
-                          communityProvider.addCntOfComment(widget.communityDetail.boardSeq);
+                          commentViewModel.addCommentList(comment);
+                          communityViewModel.addCntOfComment(widget.communityDetail.boardSeq);
                           commentController.text = '';
 
-                          pointHistoryProvider.addCommunityComment();
-                          if (pointHistoryProvider.getCommunityComment >= pointHistoryProvider.getTotalCommunityComment == false) {
-                            await memberService.setPoint('COMMUNITY_COMMENT');
+                          pointHistoryViewModel.addCommunityComment();
+                          if (pointHistoryViewModel.getCommunityComment >= pointHistoryViewModel.getTotalCommunityComment == false) {
+                            await _memberRepository.setPoint('COMMUNITY_COMMENT');
                           }
 
                           FocusManager.instance.primaryFocus?.unfocus();
